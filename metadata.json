@@ -1,0 +1,6 @@
+{
+  "name": "KibabuiMart",
+  "description": "Premium university marketplace for Kibabii University students and staff to buy and sell items.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

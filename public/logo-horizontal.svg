@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 110" width="100%" height="100%">
+  <defs>
+    <linearGradient id="kibuHBagGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1A2548" />
+      <stop offset="100%" stop-color="#101732" />
+    </linearGradient>
+    <linearGradient id="kibuHHandleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#24335E" />
+      <stop offset="100%" stop-color="#131B36" />
+    </linearGradient>
+    <linearGradient id="kibuHCapTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D" />
+      <stop offset="40%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+    <linearGradient id="kibuHCapRim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#B45309" />
+      <stop offset="100%" stop-color="#78350F" />
+    </linearGradient>
+    <linearGradient id="kibuHCapBase" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="60%" stop-color="#D97706" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+    <radialGradient id="kibuHBadgeGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="70%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#047857" />
+    </radialGradient>
+  </defs>
+
+  <!-- Scaled Icon on Left (scale ~0.38, transform) -->
+  <g transform="translate(-40, -18) scale(0.38)">
+    <!-- Bag Handle -->
+    <path 
+      d="M 216 156 C 216 90, 296 90, 296 156" 
+      stroke="url(#kibuHHandleGrad)" 
+      stroke-width="16" 
+      stroke-linecap="round" 
+      fill="none" 
+    />
+    <!-- Bag Body -->
+    <path 
+      d="M 186 142 L 326 142 C 346 142, 351 156, 353 172 L 365 288 C 367 304, 353 314, 335 314 L 177 314 C 159 314, 145 304, 147 288 L 159 172 C 161 156, 166 142, 186 142 Z" 
+      fill="url(#kibuHBagGrad)" 
+    />
+    <!-- Rivets -->
+    <circle cx="216" cy="164" r="7" fill="#0C1226" />
+    <circle cx="296" cy="164" r="7" fill="#0C1226" />
+    <!-- Gloss Line -->
+    <path 
+      d="M 184 302 L 331 302 C 347 302, 354 294, 352 280 L 347 198" 
+      stroke="#FFFFFF" 
+      stroke-width="4.5" 
+      stroke-linecap="round" 
+      stroke-linejoin="round" 
+      fill="none" 
+      opacity="0.9" 
+    />
+    <!-- Cap Base -->
+    <path 
+      d="M 218 226 C 218 226, 256 242, 294 226 L 291 262 C 291 262, 256 278, 221 262 Z" 
+      fill="url(#kibuHCapBase)" 
+    />
+    <!-- Cap Diamond Top -->
+    <polygon points="194,214 256,194 318,214 256,234" fill="url(#kibuHCapTop)" />
+    <!-- Cap Rim -->
+    <polygon points="194,214 256,234 318,214 318,219 256,239 194,219" fill="url(#kibuHCapRim)" />
+    <!-- Cap Button & Tassel -->
+    <circle cx="256" cy="214" r="4.5" fill="#B45309" />
+    <path d="M 256 214 C 230 215, 210 220, 206 226 L 206 247" stroke="#B45309" stroke-width="2.5" stroke-linecap="round" fill="none" />
+    <circle cx="206" cy="247" r="2.5" fill="#78350F" />
+    <polygon points="203,249 209,249 211,262 201,262" fill="#D97706" />
+    <!-- Green Badge -->
+    <circle cx="346" cy="138" r="14" fill="url(#kibuHBadgeGrad)" stroke="#F59E0B" stroke-width="3" />
+    <circle cx="342" cy="134" r="3.5" fill="#FFFFFF" opacity="0.5" />
+  </g>
+
+  <!-- Typography Right -->
+  <g transform="translate(112, 0)">
+    <text 
+      x="0" 
+      y="62" 
+      font-family="'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif" 
+      font-weight="900" 
+      font-size="44" 
+      letter-spacing="2.5" 
+      fill="#F97316"
+    >KIBUMALL</text>
+    <text 
+      x="2" 
+      y="90" 
+      font-family="'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif" 
+      font-weight="700" 
+      font-size="16" 
+      letter-spacing="9" 
+      fill="#F97316"
+      opacity="0.95"
+    >MARKETPLACE</text>
+  </g>
+</svg>
