@@ -75,9 +75,6 @@ export default function Signup() {
           phone: formData.phone,
           password: formData.password, // REAL TYPED PASSWORD
           campus: formData.campus,
-          hostel_area: formData.hostel_area,
-          student_reg_number: formData.student_reg_number,
-          avatar_url: formData.avatar_url
         };
         await registerStudent(payload);
       } else {

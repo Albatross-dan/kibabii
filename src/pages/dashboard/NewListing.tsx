@@ -831,6 +831,7 @@ export default function NewListing() {
         store_id: effectiveStoreId,
         as_individual: sellerType === "student" || !effectiveStoreId,
         whatsapp_number: productWhatsappNumber.trim() || null,
+        brand_id: (selectedBrandId && selectedBrandId !== "none") ? selectedBrandId : null,
 
         // Accommodation fields
         accommodation_type: typeData.accommodation_type || "bedsitter",
@@ -2089,12 +2090,18 @@ export default function NewListing() {
                         <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Product Brand (Optional)</Label>
                         <Select value={selectedBrandId} onValueChange={setSelectedBrandId}>
                           <SelectTrigger className="h-11 rounded-xl bg-white border-2">
-                            <SelectValue placeholder="Select Brand" />
+                            <SelectValue placeholder="Select Brand">
+                              {(() => {
+                                if (!selectedBrandId || selectedBrandId === "none") return "No specific brand";
+                                const matched = dbBrands.find((b) => b.id === selectedBrandId);
+                                return matched ? matched.name : "Select Brand";
+                              })()}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent className="rounded-xl">
-                            <SelectItem value="none">No specific brand</SelectItem>
+                            <SelectItem value="none" label="No specific brand">No specific brand</SelectItem>
                             {dbBrands.map((brand) => (
-                              <SelectItem key={brand.id} value={brand.id}>
+                              <SelectItem key={brand.id} value={brand.id} label={brand.name}>
                                 {brand.name}
                               </SelectItem>
                             ))}
@@ -2109,11 +2116,20 @@ export default function NewListing() {
                         <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Campus Branch Location</Label>
                         <Select value={selectedCampusId} onValueChange={setSelectedCampusId}>
                           <SelectTrigger className="h-11 rounded-xl bg-white border-2">
-                            <SelectValue placeholder="Select Campus" />
+                            <SelectValue placeholder="Select Campus">
+                              {(() => {
+                                const matched = dbCampuses.find((c) => c.id === selectedCampusId);
+                                return matched ? `${matched.name} (${matched.short_name}) - ${matched.town}` : "Select Campus";
+                              })()}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent className="rounded-xl">
                             {dbCampuses.map((campus) => (
-                              <SelectItem key={campus.id} value={campus.id}>
+                              <SelectItem
+                                key={campus.id}
+                                value={campus.id}
+                                label={`${campus.name} (${campus.short_name}) - ${campus.town}`}
+                              >
                                 {campus.name} ({campus.short_name}) - {campus.town}
                               </SelectItem>
                             ))}

@@ -103,6 +103,36 @@ export default function ProductDetail() {
               subcategory_id: directProduct.subcategory_id
             };
           } else {
+            // Check if id is a service ID directly
+            const { data: directService } = await supabase
+              .from('services')
+              .select('*, service_images(image_url, is_primary, display_order)')
+              .eq('id', id)
+              .maybeSingle();
+
+            if (directService) {
+              const { data: linkedListing } = await supabase
+                .from('listings')
+                .select('id, views_count, favorites_count, owner_id')
+                .eq('service_id', directService.id)
+                .maybeSingle();
+
+              listingData = {
+                id: linkedListing?.id || directService.id,
+                actual_listing_id: linkedListing?.id,
+                title: directService.title,
+                description: directService.description,
+                location: directService.location || 'Kibabii Campus',
+                status: directService.status || 'active',
+                listing_type: 'service',
+                owner_id: linkedListing?.owner_id || directService.provider_id || directService.user_id,
+                created_at: directService.created_at,
+                services: directService
+              };
+            }
+          }
+
+          if (!listingData) {
             // 2. Fetch from listings table (for /listing/:id or non-product listings)
             const { data, error } = await supabase
               .from('listings')
@@ -201,6 +231,29 @@ export default function ProductDetail() {
           } else {
             setWhatsappLink(null);
             setShareDetails(null);
+          }
+
+          // If service relation exists without service_images, fetch them directly
+          if (listingData.listing_type === 'service') {
+            const srv = Array.isArray(listingData.services) ? listingData.services[0] : listingData.services;
+            const targetServiceId = srv?.id || listingData.service_id;
+            if (targetServiceId && (!srv || !srv.service_images || srv.service_images.length === 0)) {
+              try {
+                const { data: sImgs } = await supabase
+                  .from('service_images')
+                  .select('image_url, is_primary, display_order')
+                  .eq('service_id', targetServiceId);
+                if (sImgs && sImgs.length > 0) {
+                  if (srv) {
+                    srv.service_images = sImgs;
+                  } else {
+                    listingData.services = { id: targetServiceId, service_images: sImgs };
+                  }
+                }
+              } catch (sImgErr) {
+                console.warn('Direct service_images fetch failed:', sImgErr);
+              }
+            }
           }
 
           let prod = Array.isArray(listingData.products) ? listingData.products[0] : listingData.products;
@@ -334,11 +387,15 @@ export default function ProductDetail() {
               } as any);
             } else if (listingData.listing_type === 'service') {
               const srv = Array.isArray(listingData.services) ? listingData.services[0] : listingData.services;
-              const srvImages = (srv?.service_images || [])
-                .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
-                .map((img: any) => img.image_url);
-              setAllImages(srvImages.length > 0 ? srvImages : ['https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&q=80']);
-              setActiveImage(srvImages[0] || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&q=80');
+              const rawSrvImages: any[] = srv?.service_images || [];
+              const sortedSrv = [...rawSrvImages].sort((a: any, b: any) => {
+                if (a.is_primary && !b.is_primary) return -1;
+                if (!a.is_primary && b.is_primary) return 1;
+                return (a.display_order ?? 0) - (b.display_order ?? 0);
+              });
+              const srvImages = sortedSrv.map((img: any) => img.image_url).filter(Boolean);
+              setAllImages(srvImages);
+              setActiveImage(srvImages[0] || null);
               setCategoryName('SERVICE');
               setProduct({
                 id: listingData.id,

@@ -10,6 +10,7 @@ export interface UserProfile {
   email: string;
   phone: string; // WhatsApp number
   whatsapp_number?: string;
+  campus_id?: string;
   role: 'student' | 'store' | 'admin' | 'both' | 'shop_owner';
   account_type?: 'student' | 'store' | 'admin' | 'both' | 'shop_owner';
   verification_status?: 'unverified' | 'pending' | 'verified' | 'rejected';
@@ -381,6 +382,8 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       const formPassword = (data as any).password || '';
       const fullName = (data.full_name || '').trim();
       const username = (data.username || (formEmail ? formEmail.split('@')[0] : 'comrade')).trim();
+      const whatsappNumber = (data.whatsapp_number || (data as any).phone || '').trim();
+      let campusId = (data.campus_id || (data as any).campusId || '').trim();
 
       if (!formEmail) {
         throw new Error('Email address is required.');
@@ -389,7 +392,29 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         throw new Error('Password is required.');
       }
 
-      // Step 1: Real Supabase signUp with the real password typed by the user
+      // If campusId is not a UUID, resolve it from data.campus name or fallback
+      const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!UUID_REGEX.test(campusId)) {
+        try {
+          const searchCampusName = (data.campus || 'Kibabii University').trim();
+          const { data: matchedCampus } = await supabase
+            .from('campuses')
+            .select('id')
+            .ilike('name', `%${searchCampusName}%`)
+            .maybeSingle();
+
+          if (matchedCampus?.id) {
+            campusId = matchedCampus.id;
+          } else {
+            // Default Kibabii University ID
+            campusId = '8e08c135-e6ec-4387-af3e-110b11d37c07';
+          }
+        } catch {
+          campusId = '8e08c135-e6ec-4387-af3e-110b11d37c07';
+        }
+      }
+
+      // Step 1: Real Supabase signUp with metadata including campus_id and whatsapp_number
       const { data: signUpData, error } = await supabase.auth.signUp({
         email: formEmail,
         password: formPassword,
@@ -397,13 +422,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           data: {
             full_name: fullName,
             username: username,
-            account_type: 'student'
+            account_type: 'student',
+            campus_id: campusId,
+            whatsapp_number: whatsappNumber
           }
         }
       });
 
       if (error) {
-        // Show error.message, stop here, do NOT show a success screen or invent fake accounts
         console.error('Supabase student signUp error:', error);
         throw error;
       }
@@ -418,7 +444,9 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         full_name: fullName,
         username: username,
         email: formEmail,
-        phone: data.phone || '',
+        phone: whatsappNumber,
+        whatsapp_number: whatsappNumber,
+        campus_id: campusId,
         role: 'student',
         account_type: 'student',
         can_buy: true,
@@ -426,8 +454,6 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         is_store: false,
         avatar_url: data.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authUser.id}`,
         campus: data.campus || 'Kibabii University',
-        hostel_area: data.hostel_area || '',
-        student_reg_number: data.student_reg_number || '',
         email_verified: Boolean(authUser.email_confirmed_at),
         student_verification_status: 'unverified',
         store_verification_status: 'unverified',
@@ -440,18 +466,31 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         join_date: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
       };
 
-      // Step 2: Attempt profile synchronization with Supabase profiles table
+      // Step 2: Persist campus_id and whatsapp_number to the profiles table
       try {
-        await supabase.from('profiles').upsert({
-          id: authUser.id,
-          full_name: fullName,
-          username: username,
-          email: formEmail,
-          phone: data.phone || '',
-          avatar_url: newStudent.avatar_url,
-          role: 'buyer',
-          account_type: 'student'
-        });
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            campus_id: campusId,
+            whatsapp_number: whatsappNumber,
+            phone: whatsappNumber
+          })
+          .eq('id', authUser.id);
+
+        if (updateError) {
+          console.warn('Profile direct update notice, trying upsert:', updateError);
+          await supabase.from('profiles').upsert({
+            id: authUser.id,
+            full_name: fullName,
+            username: username,
+            email: formEmail,
+            phone: whatsappNumber,
+            whatsapp_number: whatsappNumber,
+            campus_id: campusId,
+            avatar_url: newStudent.avatar_url,
+            role: 'buyer'
+          });
+        }
       } catch (profErr) {
         console.warn('Profile synchronization notice:', profErr);
       }

@@ -48,7 +48,8 @@ const fetchCategoryListings = async (category: any, sortBy = 'newest') => {
           )
         ),
         services (
-          id, price
+          id, price,
+          service_images (image_url, display_order, is_primary)
         ),
         lost_found_items (
           id, item_type, status
@@ -409,7 +410,12 @@ export default function CategoryListingsPage({ category, onBack }: CategoryListi
               } else if (item.accommodations?.accommodation_images?.length) {
                 imgUrl = item.accommodations.accommodation_images[0].image_url;
               } else if (item.services?.service_images?.length) {
-                imgUrl = item.services.service_images[0].image_url;
+                const sImgs = [...item.services.service_images].sort((a: any, b: any) => {
+                  if (a.is_primary && !b.is_primary) return -1;
+                  if (!a.is_primary && b.is_primary) return 1;
+                  return (a.display_order ?? 0) - (b.display_order ?? 0);
+                });
+                imgUrl = sImgs[0]?.image_url || null;
               } else if (item.lost_found_items?.lost_found_images?.length) {
                 imgUrl = item.lost_found_items.lost_found_images[0].image_url;
               } else if (item.events?.event_images?.length) {

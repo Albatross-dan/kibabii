@@ -16,6 +16,8 @@ export interface Database {
           username: string | null
           avatar_url: string | null
           phone: string | null
+          whatsapp_number?: string | null
+          campus_id?: string | null
           role: 'buyer' | 'seller' | 'both' | 'admin'
           student_id: string | null
           department: string | null
@@ -34,6 +36,8 @@ export interface Database {
           username?: string | null
           avatar_url?: string | null
           phone?: string | null
+          whatsapp_number?: string | null
+          campus_id?: string | null
           role?: 'buyer' | 'seller' | 'both' | 'admin'
           student_id?: string | null
           department?: string | null
@@ -52,6 +56,8 @@ export interface Database {
           username?: string | null
           avatar_url?: string | null
           phone?: string | null
+          whatsapp_number?: string | null
+          campus_id?: string | null
           role?: 'buyer' | 'seller' | 'both' | 'admin'
           student_id?: string | null
           department?: string | null

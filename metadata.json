@@ -1,6 +1,6 @@
 {
-  "name": "KibabuiMart",
-  "description": "Premium university marketplace for Kibabii University students and staff to buy and sell items.",
+  "name": "Comrade Market",
+  "description": "Premium university marketplace for students and comrades to buy and sell items.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

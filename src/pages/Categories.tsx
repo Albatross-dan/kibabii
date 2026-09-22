@@ -228,7 +228,8 @@ export default function Categories() {
               accommodation_images (image_url, is_primary)
             ),
             services (
-              id, price
+              id, price,
+              service_images (image_url, display_order, is_primary)
             ),
             lost_found_items (
               id, item_type, status
@@ -256,7 +257,12 @@ export default function Categories() {
           } else if (acc?.accommodation_images?.length) {
             images = acc.accommodation_images.map((img: any) => img.image_url);
           } else if (svc?.service_images?.length) {
-            images = svc.service_images.map((img: any) => img.image_url);
+            const sortedSvcImgs = [...svc.service_images].sort((a: any, b: any) => {
+              if (a.is_primary && !b.is_primary) return -1;
+              if (!a.is_primary && b.is_primary) return 1;
+              return (a.display_order ?? 0) - (b.display_order ?? 0);
+            });
+            images = sortedSvcImgs.map((img: any) => img.image_url);
           }
 
           return {

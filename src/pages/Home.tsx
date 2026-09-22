@@ -292,7 +292,7 @@ export default function Home() {
         safeQuery(
           supabase
             .from('services')
-            .select('*')
+            .select('*, service_images(image_url, display_order, is_primary)')
             .eq('status', 'active')
             .order('created_at', { ascending: false })
             .limit(8)
@@ -756,8 +756,10 @@ export default function Home() {
   // Services Card Render
   const renderServiceCard = (service: any) => {
     const isWishlisted = hasItem(service.id);
-    const images = service.service_images ?? [];
-    const imageUrl = service.image_url || images[0]?.image_url || null;
+    const images: any[] = Array.isArray(service.service_images) ? [...service.service_images] : [];
+    const sortedImages = images.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const primaryImg = sortedImages.find((img) => img.is_primary) || sortedImages[0];
+    const imageUrl = primaryImg?.image_url || null;
     const price = Number(service.starting_price || service.price || 0);
 
     return (

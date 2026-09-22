@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
-import { Mail, Lock, User, Phone, MapPin, Tag, FileText, ImageIcon, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Phone, MapPin, Tag, ImageIcon, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -47,9 +47,6 @@ export function RegistrationForm({ type, onSubmit, isLoading }: RegistrationForm
   
   // Student specific states
   const [campus, setCampus] = React.useState('Kibabii University');
-  const [hostelArea, setHostelArea] = React.useState('');
-  const [studentRegNumber, setStudentRegNumber] = React.useState('');
-  const [avatarUrl, setAvatarUrl] = React.useState('');
 
   // Store specific states
   const [storeName, setStoreName] = React.useState('');
@@ -81,11 +78,6 @@ export function RegistrationForm({ type, onSubmit, isLoading }: RegistrationForm
 
     if (type === 'student') {
       payload.campus = campus;
-      payload.hostel_area = hostelArea;
-      payload.student_reg_number = studentRegNumber;
-      if (avatarUrl) {
-        payload.avatar_url = avatarUrl;
-      }
     } else {
       if (!businessCategory) {
         toast.error('Please select a Business Category.');
@@ -205,69 +197,20 @@ export function RegistrationForm({ type, onSubmit, isLoading }: RegistrationForm
 
       {/* 3. Student Specific Fields */}
       {type === 'student' && (
-        <>
-          <div className="space-y-2">
-            <Label htmlFor="campus" className="font-bold text-foreground">Campus <span className="text-red-500">*</span></Label>
-            <div className="relative">
-              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                id="campus"
-                type="text"
-                required
-                className="pl-11 h-12 rounded-xl bg-slate-50 border-slate-200"
-                value={campus}
-                onChange={(e) => setCampus(e.target.value)}
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="campus" className="font-bold text-foreground">Campus <span className="text-red-500">*</span></Label>
+          <div className="relative">
+            <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              id="campus"
+              type="text"
+              required
+              className="pl-11 h-12 rounded-xl bg-slate-50 border-slate-200"
+              value={campus}
+              onChange={(e) => setCampus(e.target.value)}
+            />
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="hostelArea" className="font-bold text-foreground">Hostel / Area <span className="text-xs text-muted-foreground font-semibold">(Optional)</span></Label>
-              <div className="relative">
-                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="hostelArea"
-                  type="text"
-                  className="pl-11 h-12 rounded-xl"
-                  placeholder="E.g. Soweto Block B"
-                  value={hostelArea}
-                  onChange={(e) => setHostelArea(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="regNumber" className="font-bold text-foreground">Student Registration Number <span className="text-xs text-muted-foreground font-semibold">(Optional)</span></Label>
-              <div className="relative">
-                <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="regNumber"
-                  type="text"
-                  className="pl-11 h-12 rounded-xl"
-                  placeholder="E.g. COM/04/2022"
-                  value={studentRegNumber}
-                  onChange={(e) => setStudentRegNumber(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="avatarUrl" className="font-bold text-foreground">Profile Picture URL <span className="text-xs text-muted-foreground font-semibold">(Optional)</span></Label>
-            <div className="relative">
-              <ImageIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                id="avatarUrl"
-                type="url"
-                className="pl-11 h-12 rounded-xl"
-                placeholder="E.g. https://images.unsplash.com/your-photo"
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-              />
-            </div>
-          </div>
-        </>
+        </div>
       )}
 
       {/* 4. Store Specific Fields */}
