@@ -1358,9 +1358,9 @@ export default function NewListing() {
         {renderProgressDotBar()}
 
         {/* DYNAMIC STEPS RENDERING */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="max-w-3xl mx-auto space-y-8">
           
-          <div className="lg:col-span-2 space-y-8">
+          <div className="space-y-8">
             
             {/* STEP 1: SELECT LISTING TYPE */}
             {currentStep === 1 && (
@@ -2448,123 +2448,7 @@ export default function NewListing() {
                 </div>
               </div>
             )}
-
-            {/* BUTTON SUITE NAVIGATION BAR */}
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-md mt-6 sm:mt-8 sticky bottom-[76px] lg:bottom-4 z-30">
-              <Button
-                variant="outline"
-                disabled={currentStep === 1}
-                onClick={handlePrevStep}
-                className="h-11 sm:h-12 px-5 sm:px-6 rounded-xl font-bold border-slate-200 text-slate-700 hover:bg-slate-50 transition flex items-center justify-center gap-2 text-xs sm:text-sm"
-              >
-                <ArrowLeft className="h-4 w-4" /> {currentStep === 1 ? 'Start' : `Back (Step ${currentStep - 1})`}
-              </Button>
-
-              <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-500 py-1 sm:py-0">
-                <button
-                  type="button"
-                  onClick={handlePrevStep}
-                  disabled={currentStep === 1}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 cursor-pointer text-slate-700"
-                  title="Previous Step"
-                  aria-label="Previous step"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="font-extrabold text-slate-800 px-1">
-                  Step {currentStep} of 6
-                </span>
-                <button
-                  type="button"
-                  onClick={handleNextStep}
-                  disabled={currentStep === 6}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 cursor-pointer text-slate-700"
-                  title="Next Step"
-                  aria-label="Next step"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-
-              {currentStep < 6 ? (
-                <Button
-                  onClick={handleNextStep}
-                  className="h-11 sm:h-12 px-5 sm:px-8 bg-primary hover:bg-primary/95 text-white font-extrabold rounded-xl shadow-md shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition text-xs sm:text-sm"
-                >
-                  Continue to Step {currentStep + 1} <ArrowRight className="h-4 w-4 stroke-[3]" />
-                </Button>
-              ) : (
-                <Button
-                  onClick={handlePublish}
-                  disabled={loading}
-                  className="h-11 sm:h-12 px-6 sm:px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-600/20 transition duration-200 flex items-center justify-center gap-2 text-xs sm:text-sm"
-                >
-                  {loading ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" /> Publishing Post...
-                    </>
-                  ) : (
-                    '✓ Publish Listing Now'
-                  )}
-                </Button>
-              )}
-            </div>
           </div>
-
-          {/* SIDEBAR GUIDE DETAILS */}
-          <aside className="space-y-6">
-            <Card className="border-none shadow-sm rounded-3xl bg-slate-900 text-slate-100 p-6 space-y-4 text-left">
-              <span className="text-[10px] uppercase font-black tracking-widest text-primary flex items-center gap-1">
-                <ShieldCheck className="h-4 w-4 text-primary" /> Security Guidelines
-              </span>
-              <div className="space-y-3 pt-2">
-                {[
-                  'Complete details with actual descriptions & negotiable rates.',
-                  'No illicit, copied keys or unauthorized exam guides allowed.',
-                  'We highly encourage meeting buyers at Main Campus Quad spaces.'
-                ].map((term, idx) => (
-                  <div key={idx} className="flex gap-2.5 items-start">
-                    <span className="h-5 w-5 bg-white/10 text-white rounded-md flex items-center justify-center text-[10px] font-mono shrink-0">
-                      {idx + 1}
-                    </span>
-                    <p className="text-[11px] text-slate-300 leading-relaxed font-semibold">{term}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="p-3.5 bg-white/5 border border-white/10 rounded-xl flex gap-2 items-start mt-4">
-                <Info className="h-4.5 w-4.5 text-primary shrink-0" />
-                <div>
-                  <p className="text-[11px] font-black text-white leading-normal">Need immediate desk support?</p>
-                  <p className="text-[9.5px] text-slate-400 mt-1">Moderators verify listings 24/7. Shoot inquiries to Campus Hall Desk room 4.</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="border border-slate-105 rounded-3xl bg-white p-6 space-y-4 text-left">
-              <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5 uppercase tracking-wider">
-                <Sparkles className="h-4 w-4 text-amber-500" /> Seller Dashboard
-              </h4>
-              <div className="space-y-3 text-xs font-semibold">
-                <div className="flex justify-between items-center pb-2 border-b border-dashed">
-                  <span className="text-slate-500">Comrade Rating</span>
-                  <span className="font-black text-slate-805">⭐ {profile?.seller_rating || '5.0'}</span>
-                </div>
-                <div className="flex justify-between items-center pb-2 border-b border-dashed">
-                  <span className="text-slate-500">Active Listings</span>
-                  <span className="font-black text-slate-805">
-                    {activeListingsCount} / {isStore ? 'Unlimited' : '10'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Member Status</span>
-                  <span className="font-black text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded uppercase text-[9px]">
-                    Verified
-                  </span>
-                </div>
-              </div>
-            </Card>
-          </aside>
         </div>
       </div>
 
