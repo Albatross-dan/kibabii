@@ -299,23 +299,27 @@ export default function Search() {
       subtitle = `${item.accommodation_type || details.accommodation_type || details.property_type || 'Bedsitter'} • ${distanceVal}`;
       image = primaryImage;
     } else if (item.listing_type === 'service') {
-      const details = item.service_details || item.service_type_details || {};
+      const details = item.service_details || item.service_type_details || item.services || {};
       price = item.service_price !== undefined ? item.service_price : (details.starting_price || details.price || 0);
       subtitle = `Gigs: ${details.working_hours || item.service_category || 'Flexible'}`;
-      image = (item.images && item.images[0]) || details.service_images?.[0]?.image_url || null;
+      const sImgs = details.service_images || [];
+      image = (item.images && item.images[0]) || sImgs[0]?.image_url || details.image_url || item.image_url || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80';
     } else if (item.listing_type === 'lost_found') {
-      const details = item.lost_found_details || {};
+      const details = item.lost_found_details || item.lost_found_items || {};
       price = 0;
-      const mode = item.lost_found_mode || details.listing_mode;
-      subtitle = `Mode: ${mode === 'lost' ? '🎒 Lost' : '🟢 Found'} at ${details.exact_location || item.location || 'Campus'}`;
-      image = (item.images && item.images[0]) || details.lost_found_images?.[0]?.image_url || null;
+      const mode = item.lost_found_mode || details.listing_mode || details.item_type || details.status;
+      subtitle = `Mode: ${mode === 'lost' ? '🎒 Lost' : '🟢 Found'} at ${details.exact_location || details.location_text || item.location || 'Campus'}`;
+      image = details.image_url || item.image_url || (item.images && item.images[0]) || details.lost_found_images?.[0]?.image_url || null;
     } else if (item.listing_type === 'event') {
-      const details = item.event_details || {};
+      const details = item.event_details || item.events || {};
       price = item.ticket_price !== undefined ? item.ticket_price : (details.ticket_price || 0);
       const date = item.event_date || details.event_date;
       subtitle = `${date || 'TBD'} • By ${details.organizer_name || 'Comrades'}`;
-      const rawImg = details.banner_url || (item.images && item.images[0]) || details.event_images?.[0]?.image_url || null;
-      image = (rawImg && rawImg.startsWith('http')) ? rawImg : null;
+      const knownBanner = (details.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || item.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593')
+        ? 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg'
+        : null;
+      const rawImg = details.banner_url || knownBanner || (item.images && item.images[0]) || details.event_images?.[0]?.image_url || details.image_url || item.image_url;
+      image = rawImg || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
     }
 
     return { price, subtitle, image };
@@ -941,10 +945,12 @@ export default function Search() {
 
                         <div className="px-2 sm:px-2.5 pb-2 sm:pb-2.5 pt-1.5 border-t border-slate-100 flex items-center justify-between">
                           <div className="truncate pr-1">
-                            {spec.price > 0 ? (
-                              <span className="font-mono text-xs sm:text-sm font-black text-slate-900 leading-tight block">{formatPrice(spec.price)}</span>
-                            ) : (
-                              <span className="text-[10px] font-black text-emerald-600 uppercase leading-tight block">FREE</span>
+                            {item.listing_type !== 'lost_found' && (
+                              spec.price > 0 ? (
+                                <span className="font-mono text-xs sm:text-sm font-black text-slate-900 leading-tight block">{formatPrice(spec.price)}</span>
+                              ) : (
+                                <span className="text-[10px] font-black text-emerald-600 uppercase leading-tight block">FREE</span>
+                              )
                             )}
                             <p className="text-[9px] text-muted-foreground font-semibold leading-none mt-0.5 truncate">{spec.subtitle}</p>
                           </div>

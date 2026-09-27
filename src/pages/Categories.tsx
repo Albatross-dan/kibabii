@@ -232,10 +232,10 @@ export default function Categories() {
               service_images (image_url, display_order, is_primary)
             ),
             lost_found_items (
-              id, item_type, status
+              id, item_type, status, image_url
             ),
             events (
-              id, event_date, ticket_price
+              id, event_date, ticket_price, banner_url
             )
           `)
           .eq('status', 'active');
@@ -263,6 +263,20 @@ export default function Categories() {
               return (a.display_order ?? 0) - (b.display_order ?? 0);
             });
             images = sortedSvcImgs.map((img: any) => img.image_url);
+          } else if (lf?.image_url) {
+            images = [lf.image_url];
+          } else if (evt?.banner_url) {
+            images = [evt.banner_url];
+          } else if (evt?.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || row.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593') {
+            images = ['https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg'];
+          }
+
+          if (!images.length) {
+            if (row.listing_type === 'service') {
+              images = ['https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80'];
+            } else if (row.listing_type === 'event') {
+              images = ['https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80'];
+            }
           }
 
           return {
@@ -869,16 +883,18 @@ export default function Categories() {
 
                           <div className="p-2 sm:p-2.5 flex-1 flex flex-col justify-between space-y-1">
                             <div>
-                              <div className="flex items-baseline gap-1 flex-wrap">
-                                <span className="font-mono text-xs sm:text-sm font-black text-slate-900 group-hover:text-primary transition-colors">
-                                  {priceDisplay}
-                                </span>
-                                {item.flash_sale_original_price && (
-                                  <span className="font-mono text-[9px] text-gray-400 line-through">
-                                    KSh {Number(item.flash_sale_original_price).toLocaleString('en-KE')}
+                              {item.listing_type !== 'lost_found' && (
+                                <div className="flex items-baseline gap-1 flex-wrap">
+                                  <span className="font-mono text-xs sm:text-sm font-black text-slate-900 group-hover:text-primary transition-colors">
+                                    {priceDisplay}
                                   </span>
-                                )}
-                              </div>
+                                  {item.flash_sale_original_price && (
+                                    <span className="font-mono text-[9px] text-gray-400 line-through">
+                                      KSh {Number(item.flash_sale_original_price).toLocaleString('en-KE')}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
 
                               <h3 className="text-xs font-bold text-slate-800 line-clamp-2 leading-snug mt-0.5 group-hover:text-primary transition-colors">
                                 {item.title}

@@ -133,6 +133,36 @@ export default function ProductDetail() {
           }
 
           if (!listingData) {
+            // Check if id is an event ID directly
+            const { data: directEvent } = await supabase
+              .from('events')
+              .select('*')
+              .eq('id', id)
+              .maybeSingle();
+
+            if (directEvent) {
+              const { data: linkedListing } = await supabase
+                .from('listings')
+                .select('id, views_count, favorites_count, owner_id')
+                .eq('event_id', directEvent.id)
+                .maybeSingle();
+
+              listingData = {
+                id: linkedListing?.id || directEvent.id,
+                actual_listing_id: linkedListing?.id,
+                title: directEvent.title,
+                description: directEvent.description,
+                location: directEvent.location_text || 'Kibabii Campus',
+                status: directEvent.status || 'upcoming',
+                listing_type: 'event',
+                owner_id: linkedListing?.owner_id || directEvent.organizer_id,
+                created_at: directEvent.created_at,
+                events: directEvent
+              };
+            }
+          }
+
+          if (!listingData) {
             // 2. Fetch from listings table (for /listing/:id or non-product listings)
             const { data, error } = await supabase
               .from('listings')
@@ -155,7 +185,7 @@ export default function ProductDetail() {
                   id, title, description, is_free, ticket_price, banner_url, event_date, start_time, location_text
                 )
               `)
-              .eq('id', id)
+              .or(`id.eq.${id},product_id.eq.${id},service_id.eq.${id},event_id.eq.${id}`)
               .maybeSingle();
 
             if (!error && data) {
@@ -386,14 +416,25 @@ export default function ProductDetail() {
                 original_price: null
               } as any);
             } else if (listingData.listing_type === 'service') {
-              const srv = Array.isArray(listingData.services) ? listingData.services[0] : listingData.services;
+              const srv = Array.isArray(listingData.services) ? listingData.services[0] : (listingData.services || listingData.service_type_details);
               const rawSrvImages: any[] = srv?.service_images || [];
               const sortedSrv = [...rawSrvImages].sort((a: any, b: any) => {
                 if (a.is_primary && !b.is_primary) return -1;
                 if (!a.is_primary && b.is_primary) return 1;
                 return (a.display_order ?? 0) - (b.display_order ?? 0);
               });
-              const srvImages = sortedSrv.map((img: any) => img.image_url).filter(Boolean);
+              let srvImages = sortedSrv.map((img: any) => img.image_url).filter(Boolean);
+              if (srvImages.length === 0) {
+                if (Array.isArray(listingData.images) && listingData.images.length > 0) {
+                  srvImages = listingData.images;
+                } else if (srv?.image_url) {
+                  srvImages = [srv.image_url];
+                } else if (listingData.image_url) {
+                  srvImages = [listingData.image_url];
+                } else {
+                  srvImages = ['https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80'];
+                }
+              }
               setAllImages(srvImages);
               setActiveImage(srvImages[0] || null);
               setCategoryName('SERVICE');
@@ -407,14 +448,30 @@ export default function ProductDetail() {
                 original_price: null
               } as any);
             } else if (listingData.listing_type === 'lost_found') {
-              const lf = Array.isArray(listingData.lost_found_items) ? listingData.lost_found_items[0] : listingData.lost_found_items;
-              const lfImages = lf?.image_url ? [lf.image_url] : ['https://images.unsplash.com/photo-1579208575657-c595a05383b7?w=600&q=80'];
+              let lf = Array.isArray(listingData.lost_found_items) ? listingData.lost_found_items[0] : listingData.lost_found_items;
+              if (!lf && listingData.lost_found_id) {
+                try {
+                  const { data: directLf } = await supabase
+                    .from('lost_found_items')
+                    .select('id, item_name, description, item_type, image_url, location_text, contact_phone, event_date, status')
+                    .eq('id', listingData.lost_found_id)
+                    .maybeSingle();
+                  if (directLf) {
+                    lf = directLf;
+                    listingData.lost_found_items = directLf;
+                  }
+                } catch (lfErr) {
+                  console.warn('Direct lost_found fetch failed:', lfErr);
+                }
+              }
+              const lfImageUrl = lf?.image_url || listingData.image_url || null;
+              const lfImages = lfImageUrl ? [lfImageUrl] : ['https://images.unsplash.com/photo-1579208575657-c595a05383b7?w=600&q=80'];
               setAllImages(lfImages);
               setActiveImage(lfImages[0]);
               setCategoryName(lf?.item_type === 'found' ? 'FOUND ITEM' : 'LOST ITEM');
               setProduct({
                 id: listingData.id,
-                price: 0,
+                price: null,
                 currency: 'KSh',
                 status: listingData.status || 'active',
                 quantity: 1,
@@ -422,8 +479,19 @@ export default function ProductDetail() {
                 original_price: null
               } as any);
             } else if (listingData.listing_type === 'event') {
-              const ev = Array.isArray(listingData.events) ? listingData.events[0] : listingData.events;
-              const evImages = ev?.banner_url ? [ev.banner_url] : ['https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&q=80'];
+              const ev = Array.isArray(listingData.events) ? listingData.events[0] : (listingData.events || listingData.event_details);
+              const knownBanner = (ev?.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || listingData.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593')
+                ? 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg'
+                : null;
+              const banner = ev?.banner_url || knownBanner || listingData.image_url || ev?.image_url;
+              let evImages: string[] = [];
+              if (banner) {
+                evImages = [banner];
+              } else if (Array.isArray(listingData.images) && listingData.images.length > 0) {
+                evImages = listingData.images;
+              } else {
+                evImages = ['https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80'];
+              }
               setAllImages(evImages);
               setActiveImage(evImages[0]);
               setCategoryName('EVENT');
@@ -675,7 +743,34 @@ export default function ProductDetail() {
         <span className="text-4xl">🔍</span>
         <h2 className="text-2xl font-black text-slate-800">Listing Not Found</h2>
         <p className="text-slate-500 text-sm max-w-sm mx-auto">This product listing might have been removed or is no longer available.</p>
-        <Button onClick={() => navigate('/products')} className="bg-primary hover:bg-primary/95 text-white rounded-xl">Browse Products</Button>
+        <div className="flex items-center justify-center gap-2.5 flex-wrap pt-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/dashboard/listings');
+              }
+            }} 
+            className="rounded-xl border-slate-200 font-bold"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1.5" /> Go Back
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/dashboard/listings')} 
+            className="rounded-xl border-slate-200 font-bold"
+          >
+            My Listings
+          </Button>
+          <Button 
+            onClick={() => navigate('/products')} 
+            className="bg-primary hover:bg-primary/95 text-white rounded-xl font-bold"
+          >
+            Browse Products
+          </Button>
+        </div>
       </div>
     );
   }
@@ -683,17 +778,41 @@ export default function ProductDetail() {
   return (
     <div className="space-y-6 text-left">
       {/* Back navigation arrow and Breadcrumbs */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full shrink-0 border border-slate-100 bg-white hover:bg-slate-50 shadow-sm h-9 w-9">
-          <ArrowLeft className="h-4 w-4 text-slate-800" />
-        </Button>
-        <nav className="flex items-center text-xs sm:text-sm text-muted-foreground min-w-0">
-          <Link to="/" className="hover:text-primary transition-colors shrink-0">Home</Link>
-          <ChevronRight className="mx-1 sm:mx-2 h-4 w-4 shrink-0" />
-          <Link to="/products" className="hover:text-primary transition-colors shrink-0">Products</Link>
-          <ChevronRight className="mx-1 sm:mx-2 h-4 w-4 shrink-0" />
-          <span className="text-foreground font-medium truncate">{listing.title}</span>
-        </nav>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/dashboard/listings');
+              }
+            }} 
+            className="rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold flex items-center gap-1.5 h-9 px-2.5 sm:px-3 text-xs cursor-pointer shadow-2xs"
+            title="Go back"
+          >
+            <ArrowLeft className="h-4 w-4 text-slate-700" />
+            <span>Back</span>
+          </Button>
+          <nav className="flex items-center text-xs sm:text-sm text-muted-foreground min-w-0 overflow-hidden">
+            <Link to="/" className="hover:text-primary transition-colors shrink-0">Home</Link>
+            <ChevronRight className="mx-1 sm:mx-2 h-4 w-4 shrink-0 text-slate-400" />
+            <Link to="/products" className="hover:text-primary transition-colors shrink-0">Products</Link>
+            <ChevronRight className="mx-1 sm:mx-2 h-4 w-4 shrink-0 text-slate-400" />
+            <span className="text-foreground font-medium truncate">{listing.title}</span>
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild className="rounded-xl border-slate-200 text-xs font-bold h-9">
+            <Link to="/dashboard/listings" className="flex items-center gap-1.5">
+              <ArrowLeft className="w-3.5 h-3.5 text-slate-600" />
+              <span>My Listings</span>
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -780,8 +899,8 @@ export default function ProductDetail() {
                   </span>
                 );
               })()}
-              {product?.is_negotiable && <Badge variant="outline" className="border-accent text-accent">NEGOTIABLE</Badge>}
-              <Badge variant="secondary" className="bg-green-100 text-green-700">IN STOCK</Badge>
+              {listing?.listing_type === 'product' && product?.is_negotiable && <Badge variant="outline" className="border-accent text-accent">NEGOTIABLE</Badge>}
+              {listing?.listing_type === 'product' && <Badge variant="secondary" className="bg-green-100 text-green-700">IN STOCK</Badge>}
             </div>
             <h1 className="text-3xl font-black leading-tight tracking-tight">{listing.title}</h1>
             <div className="flex items-center gap-4 text-sm flex-wrap">
@@ -812,21 +931,23 @@ export default function ProductDetail() {
           </div>
 
           <div className="p-6 bg-muted/30 rounded-2xl space-y-4">
-            <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-black text-primary font-mono">
-                {product?.price ? formatPrice(product.price) : 'Contact for Price'}
-              </span>
-              {product?.original_price && (
-                <span className="text-xl text-muted-foreground line-through font-mono">
-                  {formatPrice(product.original_price)}
+            {listing?.listing_type !== 'lost_found' && (
+              <div className="flex items-baseline gap-3">
+                <span className="text-4xl font-black text-primary font-mono">
+                  {product?.price ? formatPrice(product.price) : 'Contact for Price'}
                 </span>
-              )}
-              {product?.original_price && product?.price && (
-                <Badge className="bg-primary text-white">
-                  -{Math.round(((product.original_price - product.price) / product.original_price) * 100)}% OFF
-                </Badge>
-              )}
-            </div>
+                {product?.original_price && (
+                  <span className="text-xl text-muted-foreground line-through font-mono">
+                    {formatPrice(product.original_price)}
+                  </span>
+                )}
+                {product?.original_price && product?.price && (
+                  <Badge className="bg-primary text-white">
+                    -{Math.round(((product.original_price - product.price) / product.original_price) * 100)}% OFF
+                  </Badge>
+                )}
+              </div>
+            )}
             
             {isOwner ? (
               <div className="p-3.5 bg-amber-50 border border-amber-200/80 rounded-2xl text-amber-800 text-xs font-semibold flex items-center gap-2">

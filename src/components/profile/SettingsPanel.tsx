@@ -10,6 +10,7 @@ import {
   Bell, 
   Monitor, 
   Eye, 
+  EyeOff,
   ShieldAlert,
   Sliders,
   Sparkles,
@@ -62,6 +63,7 @@ export default function SettingsPanel({
   const [avatar, setAvatar] = useState(profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=KibuUser');
   const [whatsapp, setWhatsapp] = useState(profile.whatsapp_number || profile.phone || '');
   const [pass, setPass] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Notification states
@@ -543,15 +545,26 @@ export default function SettingsPanel({
               <form onSubmit={handleUpdatePass} className="space-y-3.5 max-w-sm">
                 <div className="space-y-1">
                   <Label htmlFor="pwNew" className="font-bold text-slate-700">New Account Password</Label>
-                  <Input 
-                    id="pwNew"
-                    type="password" 
-                    required 
-                    placeholder="Enter min 6 digit secret hash..." 
-                    value={pass}
-                    onChange={(e) => setPass(e.target.value)}
-                    className="h-10 text-xs bg-white rounded-xl" 
-                  />
+                  <div className="relative">
+                    <Input 
+                      id="pwNew"
+                      type={showPass ? 'text' : 'password'} 
+                      required 
+                      placeholder="Enter min 6 digit secret hash..." 
+                      value={pass}
+                      onChange={(e) => setPass(e.target.value)}
+                      className="h-10 text-xs bg-white rounded-xl pr-10" 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass(!showPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1 rounded transition-colors cursor-pointer"
+                      title={showPass ? 'Hide password' : 'Show password'}
+                      aria-label={showPass ? 'Hide password' : 'Show password'}
+                    >
+                      {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <Button type="submit" className="h-9 text-xs bg-secondary text-white font-bold rounded-xl hover:bg-secondary/95">

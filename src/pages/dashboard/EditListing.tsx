@@ -29,6 +29,37 @@ export default function EditListing() {
   const [images, setImages] = useState<string[]>([]);
   const [condition, setCondition] = useState('New');
 
+  const getTitlePlaceholder = () => {
+    if (listing?.listing_type === 'service') return "e.g. Brayo Cyber & High-Speed Printing Services";
+    if (listing?.listing_type === 'accommodation') return "e.g. Modern Tiled Bedsitter near Gate B (Water & Wi-Fi)";
+    if (listing?.listing_type === 'event') return "e.g. Annual Campus Tech Expo & Hackathon 2026";
+    if (listing?.listing_type === 'lost_found') return "e.g. Lost HP Pavilion 14 Laptop / Found Student ID";
+    return "e.g. HP EliteBook 840 G6 / Cambridge Study Book";
+  };
+
+  const getPricePlaceholder = () => {
+    if (listing?.listing_type === 'service') return "e.g. 50 (or 5 per page)";
+    if (listing?.listing_type === 'accommodation') return "e.g. 4500 (per month)";
+    if (listing?.listing_type === 'event') return "e.g. 100 (or 0 if free)";
+    return "e.g. 1500";
+  };
+
+  const getLocationPlaceholder = () => {
+    if (listing?.listing_type === 'service') return "e.g. Student Center Room 14, Brayo Cyber near Gate A";
+    if (listing?.listing_type === 'accommodation') return "e.g. Milimani Estate, House No. 12";
+    if (listing?.listing_type === 'event') return "e.g. Main Auditorium LH-1, University Pavilion";
+    if (listing?.listing_type === 'lost_found') return "e.g. Science Complex LH-2 (3rd row) or Main Library";
+    return "e.g. Gate B stall or Soweto Hostel Block A";
+  };
+
+  const getDescriptionPlaceholder = () => {
+    if (listing?.listing_type === 'service') return "e.g. Brayo Cyber: High-speed printing, photocopying, spiral binding, and online services. Located at Student Center Room 14...";
+    if (listing?.listing_type === 'accommodation') return "e.g. Spacious bedsitter with constant borehole water, Wi-Fi, pre-paid token meter, 5 mins walk to Gate B...";
+    if (listing?.listing_type === 'event') return "e.g. Annual Campus Tech Expo 2026: Agenda, guest speakers, demonstrations, and registration details...";
+    if (listing?.listing_type === 'lost_found') return "e.g. Detailed marks, color, where it was lost or found, and claim instructions...";
+    return "e.g. Condition, specifications, included accessories, reason for selling, and inspection details...";
+  };
+
   useEffect(() => {
     if (id) {
       const loadListing = async () => {
@@ -213,33 +244,49 @@ export default function EditListing() {
             </CardHeader>
             <CardContent className="p-6 sm:p-8 space-y-6">
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Listing Title</Label>
+                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  {listing?.listing_type === 'service' ? 'Service / Business Headline' :
+                   listing?.listing_type === 'accommodation' ? 'Property / Hostel Name' :
+                   listing?.listing_type === 'event' ? 'Event Name & Theme' :
+                   listing?.listing_type === 'lost_found' ? 'Item Title (Lost / Found)' :
+                   'Listing Title'}
+                </Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Cambridge Study Book"
+                  placeholder={getTitlePlaceholder()}
                   className="h-12 rounded-xl"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Pricing base rate (KES)</Label>
+                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    {listing?.listing_type === 'service' ? 'Starting Rate (KES)' :
+                     listing?.listing_type === 'accommodation' ? 'Monthly Rent (KES)' :
+                     listing?.listing_type === 'event' ? 'Ticket Price (KES)' :
+                     'Pricing Rate (KES)'}
+                  </Label>
                   <Input
                     type="number"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    placeholder="e.g. 500"
+                    placeholder={getPricePlaceholder()}
                     className="h-12 rounded-xl"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Area Spot Location</Label>
+                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    {listing?.listing_type === 'service' ? 'Business / Cyber Location' :
+                     listing?.listing_type === 'accommodation' ? 'Hostel / Property Address' :
+                     listing?.listing_type === 'event' ? 'Event Campus Venue' :
+                     'Area Spot Location'}
+                  </Label>
                   <Input
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    placeholder="e.g. Gate B stall"
+                    placeholder={getLocationPlaceholder()}
                     className="h-12 rounded-xl"
                   />
                 </div>
@@ -262,10 +309,15 @@ export default function EditListing() {
               )}
 
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Description specs</Label>
+                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  {listing?.listing_type === 'service' ? 'Service Specs & Turnaround Details' :
+                   listing?.listing_type === 'accommodation' ? 'Property Amenities & Terms' :
+                   'Description Specs'}
+                </Label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  placeholder={getDescriptionPlaceholder()}
                   rows={4}
                   className="w-full border rounded-2xl p-4 text-xs resize-none bg-slate-50/10 focus-visible:outline-none focus:ring-1 focus:ring-primary"
                 />

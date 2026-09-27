@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { resolveLoginModal } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 
@@ -6,6 +7,7 @@ export default function LoginModal() {
   const [visible, setVisible] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const login = useAuthStore((state) => state.login);
@@ -74,19 +76,34 @@ export default function LoginModal() {
             boxSizing: 'border-box',
           }}
         />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-          style={{
-            width: '100%', padding: '12px 16px', borderRadius: 12,
-            background: '#020617', border: '1px solid #334155',
-            color: 'white', marginBottom: 16, fontSize: 15,
-            boxSizing: 'border-box',
-          }}
-        />
+        <div style={{ position: 'relative', width: '100%', marginBottom: 16 }}>
+          <input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+            style={{
+              width: '100%', padding: '12px 44px 12px 16px', borderRadius: 12,
+              background: '#020617', border: '1px solid #334155',
+              color: 'white', fontSize: 15,
+              boxSizing: 'border-box',
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            style={{
+              position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+              background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4,
+            }}
+            title={showPassword ? 'Hide password' : 'Show password'}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
 
         {error && (
           <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 12 }}>

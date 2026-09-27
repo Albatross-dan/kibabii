@@ -32,10 +32,134 @@ export default function ProductVerification() {
     const fetchProduct = async () => {
       try {
         if (!id) return;
-        const data = await productService.getProductById(id);
-        setProduct(data);
+
+        // 1. Try fetching from products table
+        try {
+          const data = await productService.getProductById(id);
+          if (data && data.title) {
+            setProduct(data);
+            return;
+          }
+        } catch {}
+
+        // 2. Try fetching from listings table polymorphic
+        const { data: listingData } = await supabase
+          .from('listings')
+          .select(`
+            id, title, description, location, status, listing_type, owner_id, product_id, accommodation_id, service_id, lost_found_id, event_id, created_at,
+            owner:public_profiles(*),
+            accommodations (*, accommodation_images (*)),
+            services (*, service_images (*)),
+            lost_found_items (*),
+            events (*)
+          `)
+          .or(`id.eq.${id},product_id.eq.${id},service_id.eq.${id},event_id.eq.${id},accommodation_id.eq.${id}`)
+          .maybeSingle();
+
+        if (listingData) {
+          let itemImages: string[] = [];
+          let itemPrice = 0;
+          let itemCategory = (listingData.listing_type || 'listing').toUpperCase();
+          let itemCondition = 'Standard';
+
+          if (listingData.listing_type === 'event') {
+            const ev = Array.isArray(listingData.events) ? listingData.events[0] : listingData.events;
+            const banner = ev?.banner_url 
+              || (ev?.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || listingData.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593' ? 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg' : null)
+              || ev?.image_url;
+            itemImages = banner ? [banner] : ['https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80'];
+            itemPrice = Number(ev?.ticket_price || 0);
+            itemCategory = 'CAMPUS EVENT';
+            itemCondition = ev?.is_free ? 'Free Event' : 'Ticketed Event';
+          } else if (listingData.listing_type === 'service') {
+            const srv = Array.isArray(listingData.services) ? listingData.services[0] : listingData.services;
+            const sImgs = (srv?.service_images || []).map((img: any) => img.image_url).filter(Boolean);
+            itemImages = sImgs.length > 0 ? sImgs : (srv?.image_url ? [srv.image_url] : ['https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80']);
+            itemPrice = Number(srv?.starting_price || srv?.price || 0);
+            itemCategory = 'CAMPUS SERVICE';
+            itemCondition = srv?.pricing_type || 'Service';
+          } else if (listingData.listing_type === 'accommodation') {
+            const acc = Array.isArray(listingData.accommodations) ? listingData.accommodations[0] : listingData.accommodations;
+            const aImgs = (acc?.accommodation_images || []).map((img: any) => img.image_url).filter(Boolean);
+            itemImages = aImgs.length > 0 ? aImgs : ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&q=80'];
+            itemPrice = Number(acc?.price_per_month || acc?.rent_amount || 0);
+            itemCategory = 'ACCOMMODATION';
+            itemCondition = acc?.accommodation_type || 'Housing';
+          }
+
+          setProduct({
+            id: listingData.id,
+            title: listingData.title,
+            description: listingData.description || '',
+            price: itemPrice,
+            currency: 'KES',
+            condition: itemCondition,
+            images: itemImages,
+            location: listingData.location || 'Kibabii Campus',
+            category_id: listingData.listing_type,
+            category: { name: itemCategory } as any,
+            is_negotiable: false,
+            created_at: listingData.created_at,
+            status: listingData.status,
+            seller_id: listingData.owner_id
+          } as any);
+          return;
+        }
+
+        // 3. Try fetching directly from events table
+        const { data: directEvent } = await supabase.from('events').select('*').eq('id', id).maybeSingle();
+        if (directEvent) {
+          const banner = directEvent.banner_url || (directEvent.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' ? 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg' : null) || directEvent.image_url || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
+          setProduct({
+            id: directEvent.id,
+            title: directEvent.title,
+            description: directEvent.description || '',
+            price: Number(directEvent.ticket_price || 0),
+            currency: 'KES',
+            condition: directEvent.is_free ? 'Free Event' : 'Ticketed Event',
+            images: [banner],
+            location: directEvent.location_text || 'Campus',
+            category_id: 'event',
+            category: { name: 'CAMPUS EVENT' } as any,
+            is_negotiable: false,
+            created_at: directEvent.created_at,
+            status: directEvent.status,
+            seller_id: directEvent.organizer_id
+          } as any);
+          return;
+        }
+
+        // 4. Try fetching directly from services table
+        const { data: directService } = await supabase
+          .from('services')
+          .select('*, service_images(image_url)')
+          .eq('id', id)
+          .maybeSingle();
+        if (directService) {
+          const sImgs = (directService.service_images || []).map((img: any) => img.image_url).filter(Boolean);
+          setProduct({
+            id: directService.id,
+            title: directService.title,
+            description: directService.description || '',
+            price: Number(directService.starting_price || directService.price || 0),
+            currency: 'KES',
+            condition: directService.pricing_type || 'Service',
+            images: sImgs.length > 0 ? sImgs : ['https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80'],
+            location: 'Campus',
+            category_id: 'service',
+            category: { name: 'CAMPUS SERVICE' } as any,
+            is_negotiable: false,
+            created_at: directService.created_at,
+            status: directService.status,
+            seller_id: directService.provider_id
+          } as any);
+          return;
+        }
+
+        toast.error('Listing details not found');
+        navigate('/admin');
       } catch (error) {
-        toast.error('Failed to load product details');
+        toast.error('Failed to load listing details');
         navigate('/admin');
       } finally {
         setLoading(false);
@@ -54,17 +178,12 @@ export default function ProductVerification() {
     try {
       if (!id) return;
       
-      // Update product record status in database
-      await productService.updateProduct(id, {
-        status: status === 'approved' ? 'active' : 'rejected'
-      } as any);
-
-      // Also trigger unified listing approval/rejection RPC if a corresponding listing exists
+      // Update unified listing approval/rejection RPC if a corresponding listing exists
       try {
         const { data: listingData } = await supabase
           .from('listings')
           .select('id')
-          .eq('product_id', id)
+          .or(`id.eq.${id},product_id.eq.${id},service_id.eq.${id},event_id.eq.${id}`)
           .maybeSingle();
 
         if (listingData?.id) {
@@ -78,11 +197,28 @@ export default function ProductVerification() {
         console.warn('Listing status sync warning:', lErr);
       }
 
-      toast.success(`Product ${status} successfully`);
+      // Also update underlying record tables
+      try {
+        if (status === 'approved') {
+          await Promise.allSettled([
+            supabase.from('products').update({ status: 'active' }).eq('id', id),
+            supabase.from('services').update({ status: 'active' }).eq('id', id),
+            supabase.from('events').update({ status: 'upcoming' }).eq('id', id)
+          ]);
+        } else {
+          await Promise.allSettled([
+            supabase.from('products').update({ status: 'rejected' }).eq('id', id),
+            supabase.from('services').update({ status: 'paused' }).eq('id', id),
+            supabase.from('events').update({ status: 'cancelled' }).eq('id', id)
+          ]);
+        }
+      } catch {}
+
+      toast.success(`Listing ${status} successfully`);
       navigate('/admin');
     } catch (error: any) {
-      console.error('Failed to update product status:', error);
-      toast.error(error?.message || 'Failed to update product status');
+      console.error('Failed to update listing status:', error);
+      toast.error(error?.message || 'Failed to update listing status');
     } finally {
       setSubmitting(false);
     }

@@ -395,8 +395,35 @@ export default function Listings() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5">
             {displayItems.map((item) => {
               const isDraft = activeTab === 'drafts';
-              const coverUrl = isDraft ? (item.draft_images?.[0] || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=400&q=80') : (item.images?.[0] || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=400&q=80');
-              const priceLabel = isDraft ? 'Draft Price' : item.listing_type === 'product' ? formatPrice(item.product_price || 0) : item.listing_type === 'accommodation' ? `${formatPrice(item.accommodation_rent || 0)}/mo` : item.listing_type === 'service' ? `From ${formatPrice(item.service_starting_price || 0)}` : 'FREE';
+              const evtObj = (item as any).event_details || (Array.isArray((item as any).events) ? (item as any).events[0] : (item as any).events);
+              const srvObj = (item as any).service_type_details || (Array.isArray((item as any).services) ? (item as any).services[0] : (item as any).services);
+              const srvImg = srvObj?.service_images?.[0]?.image_url || srvObj?.image_url;
+              const evtImg = evtObj?.banner_url || evtObj?.image_url;
+
+              const coverUrl = isDraft 
+                ? (item.draft_images?.[0] || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=400&q=80') 
+                : (item.images?.[0] 
+                   || (item as any).image_url 
+                   || evtImg 
+                   || srvImg 
+                   || (item as any).lost_found_details?.image_url 
+                   || (item.listing_type === 'event' ? 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=500&q=80' : item.listing_type === 'service' ? 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&q=80' : 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=400&q=80'));
+
+              const srvPrice = item.service_starting_price || srvObj?.starting_price || srvObj?.price || 0;
+              const evtPrice = evtObj?.ticket_price || item.event_ticket_price || 0;
+              const isEvtFree = evtObj ? (evtObj.is_free ?? (evtPrice === 0)) : (item.event_is_free ?? true);
+
+              const priceLabel = isDraft 
+                ? 'Draft Price' 
+                : item.listing_type === 'product' 
+                ? formatPrice(item.product_price || 0) 
+                : item.listing_type === 'accommodation' 
+                ? `${formatPrice(item.accommodation_rent || 0)}/mo` 
+                : item.listing_type === 'service' 
+                ? (srvPrice > 0 ? `From ${formatPrice(srvPrice)}` : 'Inquire for price') 
+                : item.listing_type === 'event' 
+                ? (isEvtFree ? 'FREE' : formatPrice(evtPrice)) 
+                : 'FREE';
               const isOrphan = !isDraft && item.listing_type === 'product' && !item.product_id;
               const isProduct = !isDraft && (item.listing_type === 'product' || !!(item as any).product_id);
 
@@ -503,10 +530,12 @@ export default function Listings() {
                         </p>
                       </div>
 
-                      <div className="flex justify-between items-baseline pt-0.5">
-                        <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Price</span>
-                        <span className="font-mono font-black text-slate-900 text-base sm:text-lg leading-none">{priceLabel}</span>
-                      </div>
+                      {item.listing_type !== 'lost_found' && (
+                        <div className="flex justify-between items-baseline pt-0.5">
+                          <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Price</span>
+                          <span className="font-mono font-black text-slate-900 text-base sm:text-lg leading-none">{priceLabel}</span>
+                        </div>
+                      )}
 
                       {/* Action buttons directly accessible on card for mobile sellers */}
                       {!isDraft && (

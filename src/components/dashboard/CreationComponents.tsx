@@ -543,7 +543,7 @@ export function PropertyForm({ data, onChange }: { data: any; onChange: (v: any)
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Monthly Rent (KES)</Label>
         <Input
           type="number"
-          placeholder="e.g. 4500"
+          placeholder="e.g. 4500 (per month) or 16000 (per semester)"
           value={data.accommodation_rent || ''}
           onChange={(e) => onChange({ ...data, accommodation_rent: parseInt(e.target.value) })}
           className="h-12 rounded-xl"
@@ -554,7 +554,7 @@ export function PropertyForm({ data, onChange }: { data: any; onChange: (v: any)
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Security Deposit (KES)</Label>
         <Input
           type="number"
-          placeholder="e.g. 4500"
+          placeholder="e.g. 2500 (Refundable deposit)"
           value={data.accommodation_deposit || ''}
           onChange={(e) => onChange({ ...data, accommodation_deposit: parseInt(e.target.value) })}
           className="h-12 rounded-xl"
@@ -564,7 +564,7 @@ export function PropertyForm({ data, onChange }: { data: any; onChange: (v: any)
       <div className="space-y-2">
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Campus Distance walk</Label>
         <Input
-          placeholder="e.g. 5 mins walk, 1km"
+          placeholder="e.g. 5 mins walk from Gate B, near Total Petrol Station"
           value={data.accommodation_distance || ''}
           onChange={(e) => onChange({ ...data, accommodation_distance: e.target.value })}
           className="h-12 rounded-xl"
@@ -575,7 +575,7 @@ export function PropertyForm({ data, onChange }: { data: any; onChange: (v: any)
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Available Rooms</Label>
         <Input
           type="number"
-          placeholder="e.g. 2"
+          placeholder="e.g. 3 vacant rooms"
           value={data.accommodation_rooms || ''}
           onChange={(e) => onChange({ ...data, accommodation_rooms: parseInt(e.target.value) })}
           className="h-12 rounded-xl"
@@ -585,7 +585,7 @@ export function PropertyForm({ data, onChange }: { data: any; onChange: (v: any)
       <div className="space-y-2 md:col-span-2">
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Landlord/House Rep Contact</Label>
         <Input
-          placeholder="Inquiries phone number (WhatsApp or Call)"
+          placeholder="e.g. Caretaker Brayo 0712345678 or Landlord 0722000000"
           value={data.accommodation_contact || ''}
           onChange={(e) => onChange({ ...data, accommodation_contact: e.target.value })}
           className="h-12 rounded-xl"
@@ -620,7 +620,7 @@ export function ServiceForm({ data, onChange }: { data: any; onChange: (v: any) 
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Starting Price (KES)</Label>
         <Input
           type="number"
-          placeholder="e.g. KSh 50"
+          placeholder="e.g. 50 (or 5 per page)"
           value={data.service_starting_price || ''}
           onChange={(e) => onChange({ ...data, service_starting_price: parseInt(e.target.value) })}
           className="h-12 rounded-xl"
@@ -630,7 +630,7 @@ export function ServiceForm({ data, onChange }: { data: any; onChange: (v: any) 
       <div className="space-y-2">
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Working Hours</Label>
         <Input
-          placeholder="e.g. 8:00 AM - 9:00 PM"
+          placeholder="e.g. Mon - Sat: 8:00 AM - 9:00 PM (or 24/7)"
           value={data.service_working_hours || ''}
           onChange={(e) => onChange({ ...data, service_working_hours: e.target.value })}
           className="h-12 rounded-xl"
@@ -640,7 +640,7 @@ export function ServiceForm({ data, onChange }: { data: any; onChange: (v: any) 
       <div className="space-y-2">
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Direct WhatsApp Link Mobile</Label>
         <Input
-          placeholder="WhatsApp contact with country code e.g. 254712345678"
+          placeholder="e.g. 0712345678 or +254712345678"
           value={data.service_whatsapp || ''}
           onChange={(e) => onChange({ ...data, service_whatsapp: e.target.value })}
           className="h-12 rounded-xl"
@@ -650,7 +650,7 @@ export function ServiceForm({ data, onChange }: { data: any; onChange: (v: any) 
       <div className="space-y-2 md:col-span-2">
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Provider Bio / Accomplishments</Label>
         <textarea
-          placeholder="Detailed portfolio summary. Why should students and agencies book your services?"
+          placeholder="e.g. Brayo Cyber provides high-speed printing, photocopying, spiral binding, document laminating, scanning, passport photos, and online student portal registrations. Special discounts for bulk student projects..."
           value={data.service_bio || ''}
           onChange={(e) => onChange({ ...data, service_bio: e.target.value })}
           rows={3}
@@ -688,7 +688,7 @@ export function LostFoundForm({ data, onChange }: { data: any; onChange: (v: any
       <div className="space-y-2">
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Exact Spot Location</Label>
         <Input
-          placeholder="e.g. Near Science Lab or LH-4 bench"
+          placeholder="e.g. Science Complex Lecture Hall 2 (3rd row) or Main Library 1st Floor"
           value={data.lost_found_exact_location || ''}
           onChange={(e) => onChange({ ...data, lost_found_exact_location: e.target.value })}
           className="h-12 rounded-xl"
@@ -708,7 +708,7 @@ export function LostFoundForm({ data, onChange }: { data: any; onChange: (v: any
       <div className="space-y-2 md:col-span-2">
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Contact details</Label>
         <Input
-          placeholder="Owner or finder name and phone"
+          placeholder="e.g. Finder: Daniel 0712345678 (or Collect at Security Gate A Desk)"
           value={data.lost_found_contact || ''}
           onChange={(e) => onChange({ ...data, lost_found_contact: e.target.value })}
           className="h-12 rounded-xl"
@@ -742,7 +742,7 @@ export function EventForm({ data, onChange }: { data: any; onChange: (v: any) =>
       <div className="space-y-2">
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Venue on Campus</Label>
         <Input
-          placeholder="e.g. Main Auditorium"
+          placeholder="e.g. Main Auditorium LH-1, University Pavilion, or Student Square"
           value={data.event_venue || ''}
           onChange={(e) => onChange({ ...data, event_venue: e.target.value })}
           className="h-12 rounded-xl"
@@ -772,7 +772,7 @@ export function EventForm({ data, onChange }: { data: any; onChange: (v: any) =>
       <div className="space-y-2">
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Organizer Name</Label>
         <Input
-          placeholder="e.g. Student Association"
+          placeholder="e.g. Campus Tech Club / Student Association"
           value={data.event_organizer || ''}
           onChange={(e) => onChange({ ...data, event_organizer: e.target.value })}
           className="h-12 rounded-xl"
@@ -782,7 +782,7 @@ export function EventForm({ data, onChange }: { data: any; onChange: (v: any) =>
       <div className="space-y-2">
         <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Rsvp / Registration Link</Label>
         <Input
-          placeholder="e.g. Google Form or Ticket link"
+          placeholder="e.g. https://forms.gle/... or Ticket link"
           value={data.event_registration_link || ''}
           onChange={(e) => onChange({ ...data, event_registration_link: e.target.value })}
           className="h-12 rounded-xl"
@@ -814,7 +814,7 @@ export function EventForm({ data, onChange }: { data: any; onChange: (v: any) =>
           {!data.event_is_free && (
             <Input
               type="number"
-              placeholder="Price e.g. 100"
+              placeholder="e.g. 100 or 250"
               value={data.event_ticket_price || ''}
               onChange={(e) => onChange({ ...data, event_ticket_price: parseInt(e.target.value) })}
               className="w-32 h-10 rounded-lg text-xs"

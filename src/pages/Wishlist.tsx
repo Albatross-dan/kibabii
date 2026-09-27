@@ -82,6 +82,16 @@ export default function Wishlist() {
             accommodations (
               id, accommodation_type, price_per_month, distance_from_campus_km,
               accommodation_images (image_url, is_primary, display_order)
+            ),
+            services (
+              id, price, starting_price,
+              service_images (image_url, is_primary, display_order)
+            ),
+            lost_found_items (
+              id, item_type, image_url, status
+            ),
+            events (
+              id, ticket_price, is_free, banner_url
             )
           `)
           .in('id', listingIds);
@@ -110,8 +120,14 @@ export default function Wishlist() {
             if (!listing && !rawRow) return null;
 
             const isAcc = (listing?.listing_type || rawRow?.listing_type) === 'accommodation';
+            const isLf = (listing?.listing_type || rawRow?.listing_type) === 'lost_found';
+            const isSvc = (listing?.listing_type || rawRow?.listing_type) === 'service';
+            const isEvt = (listing?.listing_type || rawRow?.listing_type) === 'event';
             const prod = listing?.products ? (Array.isArray(listing.products) ? listing.products[0] : listing.products) : null;
             const acc = listing?.accommodations ? (Array.isArray(listing.accommodations) ? listing.accommodations[0] : listing.accommodations) : null;
+            const svc = listing?.services ? (Array.isArray(listing.services) ? listing.services[0] : listing.services) : null;
+            const lf = listing?.lost_found_items ? (Array.isArray(listing.lost_found_items) ? listing.lost_found_items[0] : listing.lost_found_items) : null;
+            const evt = listing?.events ? (Array.isArray(listing.events) ? listing.events[0] : listing.events) : null;
 
             let imageUrl = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=400&q=80';
             let price: number | null = null;
@@ -128,6 +144,22 @@ export default function Wishlist() {
               const primary = sorted.find((img: any) => img.is_primary)?.image_url || sorted[0]?.image_url;
               if (primary) imageUrl = primary;
               else imageUrl = 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400&q=80';
+            } else if (isLf) {
+              badgeLabel = lf?.item_type === 'found' ? 'FOUND ITEM' : 'LOST ITEM';
+              if (lf?.image_url) imageUrl = lf.image_url;
+              else imageUrl = 'https://images.unsplash.com/photo-1579208575657-c595a05383b7?w=400&q=80';
+            } else if (isSvc) {
+              badgeLabel = 'SERVICE';
+              price = svc?.starting_price ?? svc?.price ?? null;
+              priceSuffix = '';
+              const svcImages = svc?.service_images || [];
+              const sorted = [...svcImages].sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+              const primary = sorted.find((img: any) => img.is_primary)?.image_url || sorted[0]?.image_url;
+              if (primary) imageUrl = primary;
+            } else if (isEvt) {
+              badgeLabel = 'EVENT';
+              price = evt?.is_free ? 0 : (evt?.ticket_price ?? null);
+              if (evt?.banner_url) imageUrl = evt.banner_url;
             } else {
               badgeLabel = 'PRODUCT';
               price = prod?.price ? Number(prod.price) : null;
@@ -388,21 +420,30 @@ export default function Wishlist() {
 
                   {/* Pricing & CTA */}
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                        {isAcc ? 'Monthly Rent' : 'Price'}
-                      </span>
-                      <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-base sm:text-lg font-black text-rose-600 font-mono">
-                          {item.price !== null ? `${formatPrice(item.price)}${item.price_suffix || ''}` : 'Contact'}
+                    {item.listing_type !== 'lost_found' ? (
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                          {isAcc ? 'Monthly Rent' : 'Price'}
                         </span>
-                        {item.original_price && item.original_price > (item.price || 0) && (
-                          <span className="text-xs text-slate-400 line-through font-mono">
-                            {formatPrice(item.original_price)}
+                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                          <span className="text-base sm:text-lg font-black text-rose-600 font-mono">
+                            {item.price !== null ? `${formatPrice(item.price)}${item.price_suffix || ''}` : 'Contact'}
                           </span>
-                        )}
+                          {item.original_price && item.original_price > (item.price || 0) && (
+                            <span className="text-xs text-slate-400 line-through font-mono">
+                              {formatPrice(item.original_price)}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Notice</span>
+                        <span className="text-xs sm:text-sm font-black text-slate-700 uppercase">
+                          {item.badge_label || 'LOST & FOUND'}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-2">
                       <Button 
@@ -416,7 +457,7 @@ export default function Wishlist() {
                         </Link>
                       </Button>
 
-                      {!isAcc && (
+                      {!isAcc && item.listing_type === 'product' && (
                         <Button 
                           onClick={() => handleAddToCart(item)}
                           disabled={addingId === item.listing_id}

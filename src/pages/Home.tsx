@@ -233,6 +233,13 @@ export default function Home() {
               products (
                 id, price, original_price, quantity, is_negotiable, category_id,
                 product_images (image_url, is_primary, display_order)
+              ),
+              services (
+                id, price, starting_price,
+                service_images (image_url, is_primary, display_order)
+              ),
+              events (
+                id, event_date, ticket_price, is_free, banner_url
               )
             `)
             .eq('status', 'active')
@@ -303,7 +310,7 @@ export default function Home() {
           supabase
             .from('events')
             .select('*')
-            .eq('status', 'upcoming')
+            .in('status', ['upcoming', 'ongoing'])
             .order('created_at', { ascending: false })
             .limit(8)
         ),
@@ -332,6 +339,13 @@ export default function Home() {
               products (
                 id, price, original_price, quantity, is_negotiable,
                 product_images (image_url, is_primary, display_order)
+              ),
+              services (
+                id, price, starting_price,
+                service_images (image_url, is_primary, display_order)
+              ),
+              events (
+                id, event_date, ticket_price, is_free, banner_url
               )
             `)
             .eq('status', 'active')
@@ -372,23 +386,31 @@ export default function Home() {
         console.warn('Failed fetching trending products:', trendErr);
       }
 
-      // Products section uses exclusively the database query result
-      const sanitizedEvents = (eventData || []).map((ev: any) => {
-        if (ev.banner_url && !ev.banner_url.startsWith('http')) {
-          return { ...ev, banner_url: null };
-        }
-        return ev;
-      });
+      // Merge local listings if user created any in current session
+      const localListings = listingService.getLocalListings();
+      const localServices = localListings.filter((l: any) => l.listing_type === 'service');
+      const localEvents = localListings.filter((l: any) => l.listing_type === 'event');
 
-      // Retroactively clean up legacy base64 banners in the database
-      listingService.fixLegacyEventBanners();
+      const mergedServices = [...(serviceData || [])];
+      for (const ls of localServices) {
+        if (!mergedServices.some((s: any) => s.id === ls.id || s.id === ls.service_id)) {
+          mergedServices.unshift(ls);
+        }
+      }
+
+      const mergedEvents = [...(eventData || [])];
+      for (const le of localEvents) {
+        if (!mergedEvents.some((e: any) => e.id === le.id || e.id === le.event_id)) {
+          mergedEvents.unshift(le);
+        }
+      }
 
       setHeroListings(carouselData);
       setFlashSales(flashData);
       setAccommodations(accommodationData);
       setProducts(productData || []);
-      setServices(serviceData);
-      setEvents(sanitizedEvents);
+      setServices(mergedServices);
+      setEvents(mergedEvents);
       setTrending(trendingProducts);
       setBeiYaComrade(comradeDealsData);
       setRecentlyAdded(recentData);
@@ -459,12 +481,29 @@ export default function Home() {
 
   // Carousel Primary Image Extractor
   const getCarouselImage = (listing: any) => {
-    const isAcc = listing.listing_type === 'accommodation';
-    const acc = Array.isArray(listing.accommodations) ? listing.accommodations[0] : listing.accommodations;
+    if (listing.listing_type === 'accommodation') {
+      const acc = Array.isArray(listing.accommodations) ? listing.accommodations[0] : listing.accommodations;
+      const images = acc?.accommodation_images ?? [];
+      const sorted = [...images].sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      return sorted.find((i: any) => i.is_primary)?.image_url ?? sorted[0]?.image_url ?? listing.images?.[0] ?? null;
+    }
+    if (listing.listing_type === 'service') {
+      const svc = Array.isArray(listing.services) ? listing.services[0] : (listing.services || listing.service_type_details);
+      const images = svc?.service_images ?? [];
+      const sorted = [...images].sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      return sorted.find((i: any) => i.is_primary)?.image_url ?? sorted[0]?.image_url ?? listing.images?.[0] ?? svc?.image_url ?? 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1200&q=80';
+    }
+    if (listing.listing_type === 'event') {
+      const evt = Array.isArray(listing.events) ? listing.events[0] : (listing.events || listing.event_details);
+      const knownBanner = (evt?.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || listing.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593')
+        ? 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg'
+        : null;
+      return evt?.banner_url ?? knownBanner ?? listing.images?.[0] ?? evt?.image_url ?? 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&q=80';
+    }
     const prod = Array.isArray(listing.products) ? listing.products[0] : listing.products;
-    const images = isAcc ? (acc?.accommodation_images ?? []) : (prod?.product_images ?? []);
+    const images = prod?.product_images ?? [];
     const sorted = [...images].sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
-    return sorted.find((i: any) => i.is_primary)?.image_url ?? sorted[0]?.image_url ?? null;
+    return sorted.find((i: any) => i.is_primary)?.image_url ?? sorted[0]?.image_url ?? listing.images?.[0] ?? null;
   };
 
   // Flash Sale Card Render
@@ -756,11 +795,24 @@ export default function Home() {
   // Services Card Render
   const renderServiceCard = (service: any) => {
     const isWishlisted = hasItem(service.id);
-    const images: any[] = Array.isArray(service.service_images) ? [...service.service_images] : [];
-    const sortedImages = images.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
-    const primaryImg = sortedImages.find((img) => img.is_primary) || sortedImages[0];
-    const imageUrl = primaryImg?.image_url || null;
-    const price = Number(service.starting_price || service.price || 0);
+    const svc = Array.isArray(service.services)
+      ? service.services[0]
+      : (service.services || service.service_type_details || service);
+    const sImgs = Array.isArray(svc?.service_images)
+      ? svc.service_images
+      : Array.isArray(service.service_images)
+      ? service.service_images
+      : [];
+    const sortedImages = [...sImgs].sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const primaryImg = sortedImages.find((img: any) => img.is_primary) || sortedImages[0];
+    const imageUrl = primaryImg?.image_url 
+      || (Array.isArray(service.images) && service.images[0])
+      || (Array.isArray(svc?.images) && svc.images[0])
+      || (typeof service.image_url === 'string' ? service.image_url : null)
+      || svc?.image_url
+      || service.banner_url
+      || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80';
+    const price = Number(service.starting_price || service.price || service.service_type_details?.starting_price || service.service_type_details?.price || svc?.starting_price || svc?.price || 0);
 
     return (
       <div 
@@ -821,8 +873,20 @@ export default function Home() {
   // Events Card Render
   const renderEventCard = (event: any) => {
     const isWishlisted = hasItem(event.id);
-    const imageUrl = (event.banner_url && event.banner_url.startsWith('http')) ? event.banner_url : null;
-    const price = Number(event.ticket_price || 0);
+    const ev = Array.isArray(event.events) ? event.events[0] : (event.events || event.event_details || event);
+    const knownBanner = (ev?.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || event.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593' || event.event_id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a')
+      ? 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg'
+      : null;
+    const imageUrl = ev?.banner_url 
+      || knownBanner
+      || event.banner_url
+      || (Array.isArray(event.images) && event.images[0])
+      || (Array.isArray(ev?.images) && ev.images[0])
+      || ev?.image_url 
+      || event.image_url 
+      || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
+    const price = Number(ev?.ticket_price ?? event.ticket_price ?? 0);
+    const isFree = ev?.is_free ?? event.is_free ?? (price === 0);
 
     return (
       <div 
@@ -845,7 +909,7 @@ export default function Home() {
           )}
           <div className="absolute top-1.5 left-1.5">
             <span className="text-[8px] sm:text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded text-white shadow-xs bg-purple-600">
-              {event.is_free ? 'Free' : 'Event'}
+              {isFree ? 'Free' : 'Event'}
             </span>
           </div>
           <button
@@ -867,13 +931,13 @@ export default function Home() {
 
         <div className="p-2 sm:p-2.5 flex-grow flex flex-col justify-between space-y-1">
           <h4 className="font-bold text-slate-800 text-xs leading-snug line-clamp-2 group-hover:text-red-600 transition-colors">
-            {event.title || event.organizer_name || 'Campus Event'}
+            {event.title || ev.title || event.organizer_name || 'Campus Event'}
           </h4>
           <p className="text-[10px] sm:text-[11px] text-gray-500 font-medium truncate leading-tight">
-            {event.event_date || event.venue || 'Upcoming Event'}
+            {event.event_date || ev.event_date || event.venue || 'Upcoming Event'}
           </p>
           <p className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm pt-0.5 leading-none">
-            {event.is_free || price === 0 ? 'Free Entry' : `KSh ${price.toLocaleString('en-KE')}`}
+            {isFree || price === 0 ? 'Free Entry' : `KSh ${price.toLocaleString('en-KE')}`}
           </p>
         </div>
       </div>
@@ -957,6 +1021,10 @@ export default function Home() {
           </div>
         </div>
       );
+    } else if (listing.listing_type === 'service') {
+      return renderServiceCard(listing);
+    } else if (listing.listing_type === 'event') {
+      return renderEventCard(listing);
     } else {
       const prod = Array.isArray(listing.products) ? listing.products[0] : listing.products;
       if (!prod) return null;

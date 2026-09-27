@@ -1,11 +1,12 @@
 import * as React from 'react';
-import { useState } from 'react';
-import { Mail, Lock, User, Phone, MapPin, Tag, ImageIcon, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Mail, Lock, User, Phone, MapPin, Tag, ImageIcon, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 interface RegistrationFormProps {
@@ -13,6 +14,13 @@ interface RegistrationFormProps {
   onSubmit: (formData: any) => Promise<void>;
   isLoading: boolean;
 }
+
+const DEFAULT_CAMPUSES = [
+  { id: '8e08c135-e6ec-4387-af3e-110b11d37c07', name: 'Kibabii University' },
+  { id: 'c0f1b4c9-7c1a-4ad1-916d-6ecee18e04bc', name: 'Moi University' },
+  { id: '7618bc9c-7617-4d4c-9e46-ae5b9d052947', name: 'MMUST' },
+  { id: '2427759a-1981-45db-8eb5-31599f72e114', name: 'Kenyatta University' }
+];
 
 const BUSINESS_CATEGORIES = [
   'Food & Cafeteria',
@@ -44,9 +52,29 @@ export function RegistrationForm({ type, onSubmit, isLoading }: RegistrationForm
   const [phone, setPhone] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   
   // Student specific states
-  const [campus, setCampus] = React.useState('Kibabii University');
+  const [campusesList, setCampusesList] = React.useState(DEFAULT_CAMPUSES);
+  const [selectedCampusId, setSelectedCampusId] = React.useState('8e08c135-e6ec-4387-af3e-110b11d37c07');
+
+  React.useEffect(() => {
+    async function loadCampuses() {
+      try {
+        const { data } = await supabase.from('campuses').select('id, name').eq('is_active', true).order('name');
+        if (data && data.length > 0) {
+          setCampusesList(data);
+          if (!data.some((c: any) => c.id === selectedCampusId)) {
+            setSelectedCampusId(data[0].id);
+          }
+        }
+      } catch (e) {
+        // Fallback to default campuses list
+      }
+    }
+    loadCampuses();
+  }, []);
 
   // Store specific states
   const [storeName, setStoreName] = React.useState('');
@@ -77,7 +105,10 @@ export function RegistrationForm({ type, onSubmit, isLoading }: RegistrationForm
     };
 
     if (type === 'student') {
-      payload.campus = campus;
+      const selectedCampusObj = campusesList.find((c) => c.id === selectedCampusId);
+      payload.campus_id = selectedCampusId;
+      payload.campus = selectedCampusObj?.name || 'Kibabii University';
+      payload.whatsapp_number = phone.trim();
     } else {
       if (!businessCategory) {
         toast.error('Please select a Business Category.');
@@ -199,17 +230,21 @@ export function RegistrationForm({ type, onSubmit, isLoading }: RegistrationForm
       {type === 'student' && (
         <div className="space-y-2">
           <Label htmlFor="campus" className="font-bold text-foreground">Campus <span className="text-red-500">*</span></Label>
-          <div className="relative">
-            <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              id="campus"
-              type="text"
-              required
-              className="pl-11 h-12 rounded-xl bg-slate-50 border-slate-200"
-              value={campus}
-              onChange={(e) => setCampus(e.target.value)}
-            />
-          </div>
+          <Select value={selectedCampusId} onValueChange={setSelectedCampusId}>
+            <SelectTrigger id="campus" className="h-12 rounded-xl bg-slate-50 border-slate-200">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-muted-foreground shrink-0" />
+                <SelectValue placeholder="Select Campus" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              {campusesList.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -288,32 +323,50 @@ export function RegistrationForm({ type, onSubmit, isLoading }: RegistrationForm
         <div className="space-y-2">
           <Label htmlFor="password" className="font-bold text-foreground">Password <span className="text-red-500">*</span></Label>
           <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
             <Input
               id="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               required
-              className="pl-11 h-12 rounded-xl"
+              className="pl-11 pr-11 h-12 rounded-xl"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 z-10 text-muted-foreground hover:text-foreground focus:outline-none p-1.5 rounded-md transition-colors cursor-pointer"
+              title={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
           </div>
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="confirmPassword" className="font-bold text-foreground">Confirm Password <span className="text-red-500">*</span></Label>
           <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
             <Input
               id="confirmPassword"
-              type="password"
+              type={showConfirmPassword ? 'text' : 'password'}
               required
-              className="pl-11 h-12 rounded-xl"
+              className="pl-11 pr-11 h-12 rounded-xl"
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword((prev) => !prev)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 z-10 text-muted-foreground hover:text-foreground focus:outline-none p-1.5 rounded-md transition-colors cursor-pointer"
+              title={showConfirmPassword ? 'Hide password' : 'Show password'}
+              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+            >
+              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
           </div>
         </div>
       </div>

@@ -37,6 +37,7 @@ import {
   Home,
   ExternalLink,
   Store,
+  LayoutDashboard,
   Link as LinkIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,7 @@ import { categoryService, CategoryNode } from '@/services/categoryService';
 import { supabase } from '@/lib/supabase';
 import { getCategoryEmoji } from '@/lib/categoryIcons';
 import { isValidUuid, toValidUuid } from '@/lib/uuid';
+import { compressAndResizeBannerImage, isNetworkLevelError } from '@/lib/bannerUploadUtils';
 
 import { AUTHORITATIVE_CATEGORIES, getSubcategoriesForCategory } from '@/constants/categories';
 
@@ -134,6 +136,13 @@ export default function NewListing() {
   const [showAutosaveNotice, setShowAutosaveNotice] = useState(false);
   const [rpcError, setRpcError] = useState<string | null>(null);
 
+  // Scroll to top immediately when listing is published
+  useEffect(() => {
+    if (isPublished) {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [isPublished]);
+
   // User details / automatically detected seller type
   const [userStore, setUserStore] = useState<any>(null);
   const [listingAsStore, setListingAsStore] = useState<boolean>(true);
@@ -179,9 +188,9 @@ export default function NewListing() {
   // Form states 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('Main Campus Quad');
+  const [location, setLocation] = useState('');
   const [images, setImages] = useState<string[]>([]);
-  const [selectedBannerFile, setSelectedBannerFile] = useState<File | null>(null);
+  const [selectedBannerFile, setSelectedBannerFile] = useState<File | Blob | null>(null);
   
   // Category states
   const [selectedCatId, setSelectedCatId] = useState('');
@@ -198,7 +207,17 @@ export default function NewListing() {
     { id: '2427759a-1981-45db-8eb5-31599f72e114', name: 'Kenyatta University', short_name: 'KU', town: 'Nairobi', is_active: true }
   ];
   const [dbCampuses, setDbCampuses] = useState<any[]>(HARDCODED_CAMPUSES);
-  const [selectedCampusId, setSelectedCampusId] = useState('8e08c135-e6ec-4387-af3e-110b11d37c07');
+  const [selectedCampusId, setSelectedCampusId] = useState<string>(() => {
+    return (profile as any)?.campus_id || '8e08c135-e6ec-4387-af3e-110b11d37c07';
+  });
+  const hasUserSelectedCampus = useRef(false);
+
+  useEffect(() => {
+    if (!hasUserSelectedCampus.current && profile?.campus_id) {
+      setSelectedCampusId(profile.campus_id);
+    }
+  }, [profile?.campus_id]);
+
   const [dbConditions, setDbConditions] = useState<any[]>([]);
   const [selectedConditionId, setSelectedConditionId] = useState('');
   const [dbBrands, setDbBrands] = useState<any[]>([]);
@@ -222,10 +241,21 @@ export default function NewListing() {
         const { data: campusesData } = await supabase.from('campuses').select('*').eq('is_active', true).order('name');
         if (campusesData && campusesData.length > 0) {
           setDbCampuses(campusesData);
-          setSelectedCampusId(campusesData[0].id);
+          if (!hasUserSelectedCampus.current) {
+            const userCampusId = (profile as any)?.campus_id;
+            if (userCampusId && campusesData.some(c => c.id === userCampusId)) {
+              setSelectedCampusId(userCampusId);
+            } else if (!userCampusId) {
+              const kibu = campusesData.find(c => c.short_name === 'KIBU' || c.name.toLowerCase().includes('kibabii'));
+              setSelectedCampusId(kibu ? kibu.id : campusesData[0].id);
+            }
+          }
         } else {
           setDbCampuses(HARDCODED_CAMPUSES);
-          setSelectedCampusId('8e08c135-e6ec-4387-af3e-110b11d37c07');
+          if (!hasUserSelectedCampus.current) {
+            const userCampusId = (profile as any)?.campus_id;
+            setSelectedCampusId(userCampusId || '8e08c135-e6ec-4387-af3e-110b11d37c07');
+          }
         }
 
         // Fetch product conditions
@@ -293,6 +323,7 @@ export default function NewListing() {
 
   // Fields and condition
   const [productPrice, setProductPrice] = useState('');
+  const [isNegotiable, setIsNegotiable] = useState(false);
   const [productCondition, setProductCondition] = useState('New');
 
   useEffect(() => {
@@ -422,7 +453,7 @@ export default function NewListing() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [listingType, title, description, location, images, selectedCatName, selectedSubcategory, productPrice, productWhatsappNumber, productCondition, typeData, promotionType, flashConfig, isPublished]);
+  }, [listingType, title, description, location, images, selectedCatName, selectedSubcategory, productPrice, isNegotiable, productWhatsappNumber, productCondition, typeData, promotionType, flashConfig, isPublished]);
 
   const triggerAutosave = async (isSilent = true) => {
     if (listingType === 'none' || !sellerId) return;
@@ -441,6 +472,7 @@ export default function NewListing() {
         selectedCatName,
         selectedSubcategory,
         productPrice,
+        isNegotiable,
         productWhatsappNumber,
         productCondition,
         typeData,
@@ -476,7 +508,7 @@ export default function NewListing() {
     setListingType(draft.listing_type);
     setTitle(draft.title || '');
     setDescription(draft.description || '');
-    setLocation(draft.location || 'Main Campus Quad');
+    setLocation(draft.location || '');
     setImages(draft.draft_images || []);
     setCurrentStep(draft.step_completed || 2);
     
@@ -485,6 +517,7 @@ export default function NewListing() {
     setSelectedCatName(db.selectedCatName || '');
     setSelectedSubcategory(db.selectedSubcategory || '');
     setProductPrice(db.productPrice || '');
+    setIsNegotiable(!!db.isNegotiable);
     setProductWhatsappNumber(db.productWhatsappNumber || '');
     setProductCondition(db.productCondition || 'New');
     setPromotionType(db.promotionType || 'free');
@@ -544,6 +577,308 @@ export default function NewListing() {
     }
     return getSubcategoriesForCategory(selectedCatId);
   }, [listingType, selectedCatId, selectedCatName, dbCategoryTree]);
+
+  // Contextual title placeholder tailored specifically to listing type and category
+  const getTitlePlaceholder = () => {
+    const catLower = (selectedCatName || selectedCatId || '').toLowerCase();
+    const subLower = (selectedSubcategory || '').toLowerCase();
+
+    if (listingType === 'service') {
+      if (catLower.includes('cyber') || catLower.includes('print') || subLower.includes('cyber') || selectedCatId === 'svc-1') {
+        return "e.g. Brayo Cyber & High-Speed Printing Services (Typing, Lamination & Binding)";
+      }
+      if (catLower.includes('photo') || catLower.includes('media') || catLower.includes('camera') || selectedCatId === 'svc-2') {
+        return "e.g. Nexus Campus Photography & Graduation Portrait Shoots (24h Delivery)";
+      }
+      if (catLower.includes('design') || catLower.includes('graphic') || catLower.includes('logo') || selectedCatId === 'svc-3') {
+        return "e.g. Creative Graphic Design - Event Posters, Club Logos & Flyers";
+      }
+      if (catLower.includes('barber') || catLower.includes('hair') || catLower.includes('salon') || selectedCatId === 'svc-4') {
+        return "e.g. Fresh Cuts Executive Barbershop, Fade Haircuts & Braiding";
+      }
+      if (catLower.includes('repair') || catLower.includes('tech') || catLower.includes('phone') || catLower.includes('laptop') || selectedCatId === 'svc-5') {
+        return "e.g. Expert Laptop Diagnostics, Windows Installation & Screen Fixes";
+      }
+      if (catLower.includes('tutor') || catLower.includes('academic') || catLower.includes('math') || selectedCatId === 'svc-6') {
+        return "e.g. One-on-One Engineering Mathematics & Statistics Tutoring";
+      }
+      return "e.g. Brayo Cyber, Campus Printing & Tech Repair Services";
+    }
+
+    if (listingType === 'accommodation') {
+      const accType = typeData.accommodation_type || '';
+      if (accType === 'bedsitter' || catLower.includes('bedsit') || selectedCatId === 'acc-3') {
+        return "e.g. Modern Tiled Bedsitter near Gate B (Water & High-Speed Wi-Fi Included)";
+      }
+      if (accType === 'hostel' || catLower.includes('hostel') || selectedCatId === 'acc-1') {
+        return "e.g. Sunrise Executive Hostels - Single Self-Contained Room with Hot Shower";
+      }
+      if (accType === 'shared_room' || catLower.includes('shared') || selectedCatId === 'acc-4') {
+        return "e.g. Shared 2-Bedroom Roommate Slot Available - Milimani Hostels";
+      }
+      if (accType === 'apartment' || catLower.includes('apartment') || catLower.includes('vacanc') || selectedCatId === 'acc-5') {
+        return "e.g. Modern 1-Bedroom Apartment with Balcony & Constant Borehole Water";
+      }
+      return "e.g. Milimani Modern Bedsitter with Constant Water & Token Electricity";
+    }
+
+    if (listingType === 'lost_found') {
+      if (catLower.includes('electron') || catLower.includes('phone') || catLower.includes('laptop') || selectedCatId === 'lost-1') {
+        return "e.g. Lost HP Pavilion 14 Laptop (Grey) or Found Samsung Galaxy A14";
+      }
+      if (catLower.includes('key') || catLower.includes('id') || catLower.includes('card') || selectedCatId === 'lost-2') {
+        return "e.g. Found National ID & Student Card for John Mwangi / Lost Room 12 Keys";
+      }
+      if (catLower.includes('wallet') || catLower.includes('cash') || catLower.includes('purse') || selectedCatId === 'lost-3') {
+        return "e.g. Lost Brown Leather Wallet containing Co-op Bank Card & Student ID";
+      }
+      if (catLower.includes('book') || catLower.includes('station') || selectedCatId === 'lost-4') {
+        return "e.g. Lost Organic Chemistry 8th Edition Textbook near Lecture Hall 3";
+      }
+      return "e.g. Lost Navy Blue Backpack with Spiral Notebooks & Flash Drive";
+    }
+
+    if (listingType === 'event') {
+      if (catLower.includes('sport') || catLower.includes('tournament') || catLower.includes('football') || selectedCatId === 'evt-1') {
+        return "e.g. Inter-Faculty 7-a-Side Champions Football Tournament 2026";
+      }
+      if (catLower.includes('party') || catLower.includes('concert') || catLower.includes('night') || selectedCatId === 'evt-2') {
+        return "e.g. Freshers Mega Welcome Night & Live DJ Performance";
+      }
+      if (catLower.includes('seminar') || catLower.includes('forum') || catLower.includes('career') || selectedCatId === 'evt-3') {
+        return "e.g. AI & Tech Career Mentorship Summit 2026";
+      }
+      if (catLower.includes('workshop') || catLower.includes('academic') || selectedCatId === 'evt-4') {
+        return "e.g. Full-Stack Web Development Hands-on Boot Camp";
+      }
+      return "e.g. Annual Campus Tech Expo & Hackathon 2026";
+    }
+
+    // Product categories
+    if (catLower.includes('electron') || catLower.includes('phone') || catLower.includes('laptop') || catLower.includes('computer')) {
+      return "e.g. HP EliteBook 840 G6 - Intel Core i5 8th Gen (8GB RAM / 256GB SSD)";
+    }
+    if (catLower.includes('book') || catLower.includes('note') || catLower.includes('station')) {
+      return "e.g. Engineering Mathematics by K.A. Stroud (8th Edition - Clean Copy)";
+    }
+    if (catLower.includes('cloth') || catLower.includes('fashion') || catLower.includes('shoe') || catLower.includes('wear')) {
+      return "e.g. Nike Air Force 1 Low '07 Sneakers (Size 42) - Pristine Condition";
+    }
+    if (catLower.includes('furnitur') || catLower.includes('bed') || catLower.includes('desk') || catLower.includes('dorm')) {
+      return "e.g. Heavy-Duty 4x6 Wooden Bed Frame + High-Density Foam Mattress";
+    }
+    if (catLower.includes('kitchen') || catLower.includes('appliance')) {
+      return "e.g. Ramtons 2-Burner Electric Hot Plate Cooker (Fast Heating)";
+    }
+    if (catLower.includes('food') || catLower.includes('snack')) {
+      return "e.g. Freshly Baked Chocolate Doughnuts & Beef Samosas (Pack of 6)";
+    }
+    if (catLower.includes('beauty') || catLower.includes('personal')) {
+      return "e.g. Professional Hair Clipper & Trimmer Set with Guard Combs";
+    }
+
+    return "e.g. HP EliteBook 840 G5 / Solid Wooden Study Desk with Drawers";
+  };
+
+  // Direct meaningful guide for title input
+  const getTitleGuideText = () => {
+    if (listingType === 'service') {
+      return "💡 Direct guide: State your brand or shop name and core service (e.g. Brayo Cyber & High-Speed Printing).";
+    }
+    if (listingType === 'accommodation') {
+      return "💡 Direct guide: Include property name, room type, and location (e.g. Sunrise Bedsitter near Gate B).";
+    }
+    if (listingType === 'lost_found') {
+      return "💡 Direct guide: State whether Lost or Found, the item type, color, and campus location.";
+    }
+    if (listingType === 'event') {
+      return "💡 Direct guide: Include the event name, theme, and edition (e.g. Annual Campus Tech Expo 2026).";
+    }
+    return "💡 Direct guide: Include brand, model, size or key specification (e.g. HP EliteBook 840 G6, 16GB RAM).";
+  };
+
+  // Label for title
+  const getTitleLabel = () => {
+    if (listingType === 'service') return "Service / Business Headline (e.g. Cyber Name)";
+    if (listingType === 'accommodation') return "Hostel / Property Name & Room Headline";
+    if (listingType === 'lost_found') return "Item Title (Lost / Found)";
+    if (listingType === 'event') return "Event Name & Theme";
+    return "Product Title & Model";
+  };
+
+  // Contextual description placeholder based on category
+  const getDescriptionPlaceholder = () => {
+    const catLower = (selectedCatName || selectedCatId || '').toLowerCase();
+
+    if (listingType === 'service') {
+      if (catLower.includes('cyber') || catLower.includes('print') || selectedCatId === 'svc-1') {
+        return "e.g. Brayo Cyber offers high-speed laser printing, colored photocopying, spiral binding, document laminating, scanning, passport photos, and student portal registration. Clean printouts, fast turnaround, and special student discounts on bulk course handouts. Located right at the Student Center.";
+      }
+      if (catLower.includes('photo') || catLower.includes('media') || selectedCatId === 'svc-2') {
+        return "e.g. Nexus Campus Photography: Professional outdoor, studio portrait, and graduation shoots. Package includes a 1-hour session, 15 professionally retouched high-resolution soft copies delivered via Google Drive within 24 hours, plus 3 free prints. Book your session today!";
+      }
+      if (catLower.includes('repair') || catLower.includes('tech') || selectedCatId === 'svc-5') {
+        return "e.g. Certified hardware & software repairs: Windows & macOS reinstallation, screen and keyboard replacement, laptop battery diagnostic, thermal paste cleaning, SSD/RAM upgrades, and virus removal. Same-day turnaround with a 30-day service warranty.";
+      }
+      if (catLower.includes('barber') || catLower.includes('hair') || catLower.includes('salon') || selectedCatId === 'svc-4') {
+        return "e.g. Executive fade haircuts, beard styling, hair wash, dreadlocks retouch, and braiding. Sterilized equipment for every client. Walk-ins welcome at the campus commercial center or book hostel room appointments.";
+      }
+      if (catLower.includes('design') || catLower.includes('graphic') || selectedCatId === 'svc-3') {
+        return "e.g. Creative campus graphic designer: Eye-catching event posters, club logos, flyers, business cards, and social media banners. Delivered in high-resolution print-ready PDF and PNG within 12 hours. Revisions included!";
+      }
+      if (catLower.includes('tutor') || catLower.includes('academic') || selectedCatId === 'svc-6') {
+        return "e.g. One-on-one and group tutorials in Calculus, Engineering Mathematics, Statistics, and Python/Java programming. We break down complex concepts, tackle past CATs and final revision papers step-by-step.";
+      }
+      return "e.g. Brayo Cyber & Campus Services: Describe all specific services offered, turnaround times, equipment used, pricing tiers, and why comrades should choose your desk...";
+    }
+
+    if (listingType === 'accommodation') {
+      return "e.g. Spacious tiled bedsitter in Milimani. Constant borehole water with dedicated overhead tank (zero rationing), independent pre-paid token meter, high-speed fiber Wi-Fi included in rent, hot shower installed. 24/7 security with perimeter stone wall and biometric gate lock. Only 5 minutes walk to Campus Gate B. Rent payable per semester or monthly.";
+    }
+
+    if (listingType === 'lost_found') {
+      return "e.g. Lost a black leather wallet containing a National ID under the name Kevin Mwangi, student ID card, and KCB debit card. Misplaced between Lecture Hall 3 and the student cafeteria around 1:30 PM. A small token of appreciation offered upon return to Gate A Security Desk.";
+    }
+
+    if (listingType === 'event') {
+      return "e.g. Annual Campus Tech Expo 2026: Featuring student project demonstrations, AI and software hackathon showcase, keynote guest speakers from top tech firms, and networking sessions. Free entry for all students with valid student ID. Certificates and refreshments provided for registered participants.";
+    }
+
+    // Product categories
+    if (catLower.includes('electron') || catLower.includes('phone') || catLower.includes('laptop') || catLower.includes('computer')) {
+      return "e.g. HP EliteBook 840 G6: Intel Core i5 8th Gen, 16GB DDR4 RAM, 256GB NVMe SSD, 14-inch Full HD anti-glare screen, backlit keyboard, fingerprint reader. Battery holds charge for 4-5 hours. In pristine condition with zero scratches. Comes with original HP fast charger, free wireless mouse, and laptop bag.";
+    }
+    if (catLower.includes('book') || catLower.includes('note') || catLower.includes('station')) {
+      return "e.g. Engineering Mathematics by K.A. Stroud 8th Edition. Clean pages with minimal pencil highlights in chapter 3, binding firm with all formula charts intact. Highly recommended for 1st & 2nd year engineering and computer science students.";
+    }
+    if (catLower.includes('cloth') || catLower.includes('fashion') || catLower.includes('shoe') || catLower.includes('wear')) {
+      return "e.g. Authentic Nike Air Force 1 Low '07 sneakers, pure white, Size 42 (EU) / Size 8 (UK). Worn only twice, flawless leather condition with no toe-box creases. Soles are completely clean. Comes in original box with extra white laces.";
+    }
+    if (catLower.includes('furnitur') || catLower.includes('dorm') || catLower.includes('bed') || catLower.includes('desk')) {
+      return "e.g. Solid heavy-duty cypress study desk with 2 smooth sliding drawers and matching ergonomic chair. Varnished mahogany finish, extremely sturdy with no wobbling. Compact design fits easily into any hostel room. Free delivery around Gate A and Gate B.";
+    }
+    if (catLower.includes('food') || catLower.includes('snack')) {
+      return "e.g. Freshly baked chocolate-glazed doughnuts and beef samosas. Baked fresh every morning with hygienic ingredients. Available in packs of 6. Warm doorstep delivery directly to your hostel room every evening.";
+    }
+
+    return "e.g. Describe the item's condition (brand new, like new, gently used), specifications, dimensions, what accessories are included, reason for selling, and meetup/testing details...";
+  };
+
+  // Meaningful guide for description
+  const getDescriptionGuideText = () => {
+    if (listingType === 'service') {
+      return "💡 Guide: Outline your exact services (e.g. printing, lamination, online portals), speed, equipment, and special student discounts.";
+    }
+    if (listingType === 'accommodation') {
+      return "💡 Guide: Detail water supply, Wi-Fi speed, electricity tokens, room dimensions, security, and payment terms.";
+    }
+    if (listingType === 'lost_found') {
+      return "💡 Guide: Describe marks, colors, contents, and how the genuine owner can verify and claim their property.";
+    }
+    if (listingType === 'event') {
+      return "💡 Guide: Outline the event agenda, special guest speakers, entry fees or free registration, and dress code.";
+    }
+    return "💡 Guide: Include condition, exact specs, what comes in the package, and where comrades can inspect the item.";
+  };
+
+  // Contextual location placeholder
+  const getLocationPlaceholder = () => {
+    const catLower = (selectedCatName || selectedCatId || '').toLowerCase();
+
+    if (listingType === 'service') {
+      if (catLower.includes('cyber') || catLower.includes('print') || selectedCatId === 'svc-1') {
+        return "e.g. Student Center 1st Floor, Room 14 or Brayo Cyber near Gate A Plaza";
+      }
+      if (catLower.includes('barber') || catLower.includes('hair') || selectedCatId === 'svc-4') {
+        return "e.g. Campus Commercial Center, Stall 4 or Room-to-Room Appointments";
+      }
+      if (catLower.includes('repair') || catLower.includes('tech') || selectedCatId === 'svc-5') {
+        return "e.g. Tech Hub Stall 8, Gate B Plaza or Doorstep Collection";
+      }
+      return "e.g. Student Center 1st Floor, Room 14 or Brayo Cyber near Gate A";
+    }
+    if (listingType === 'accommodation') {
+      return "e.g. Milimani Estate, behind Total Petrol Station, House No. 12 / Kibabii Town";
+    }
+    if (listingType === 'lost_found') {
+      return "e.g. Science Complex Lecture Hall 2 (3rd row) or Main Library 1st Floor";
+    }
+    if (listingType === 'event') {
+      return "e.g. Main Auditorium LH-1, University Pavilion Grounds, or Student Square";
+    }
+    return "e.g. Soweto Hostel Block A, Gate B or Main Library Entrance";
+  };
+
+  // Contextual location label
+  const getLocationLabel = () => {
+    if (listingType === 'service') return "Business / Cyber Physical Location or Service Stall";
+    if (listingType === 'accommodation') return "Property / Hostel Physical Address";
+    if (listingType === 'lost_found') return "Exact Spot Where Item Was Lost / Found";
+    if (listingType === 'event') return "Campus Event Venue or Hall";
+    return "Meetup / Pickup Spot Near Campus";
+  };
+
+  // Meaningful location guide
+  const getLocationGuideText = () => {
+    if (listingType === 'service') {
+      return "Tell comrades where your cyber or service stall is situated (e.g. Student Center Room 14, Brayo Cyber near Gate A).";
+    }
+    if (listingType === 'accommodation') {
+      return "State the estate name, landmarks, and house number so students can locate it for viewing.";
+    }
+    if (listingType === 'lost_found') {
+      return "Exact lecture hall, library floor, or campus pathway where the item was dropped or spotted.";
+    }
+    if (listingType === 'event') {
+      return "Campus building, hall, or sports ground where comrades should gather.";
+    }
+    return "Safe, well-lit public campus locations (e.g. Gate B, Library, Student Center) are recommended for meetups.";
+  };
+
+  // Contextual price placeholder for products
+  const getProductPricePlaceholder = () => {
+    const catLower = (selectedCatName || selectedCatId || '').toLowerCase();
+    if (catLower.includes('electron') || catLower.includes('phone') || catLower.includes('laptop')) {
+      return "e.g. 18500";
+    }
+    if (catLower.includes('book') || catLower.includes('note') || catLower.includes('station')) {
+      return "e.g. 450";
+    }
+    if (catLower.includes('cloth') || catLower.includes('fashion') || catLower.includes('shoe')) {
+      return "e.g. 1800";
+    }
+    if (catLower.includes('furnitur') || catLower.includes('bed') || catLower.includes('desk')) {
+      return "e.g. 3500";
+    }
+    if (catLower.includes('food') || catLower.includes('snack')) {
+      return "e.g. 150";
+    }
+    return "e.g. 1500";
+  };
+
+  // Contextual service starting price placeholder
+  const getServicePricePlaceholder = () => {
+    const catLower = (selectedCatName || selectedCatId || '').toLowerCase();
+    if (catLower.includes('cyber') || catLower.includes('print') || selectedCatId === 'svc-1') {
+      return "e.g. 5 (per page) or 50 (spiral binding)";
+    }
+    if (catLower.includes('photo') || catLower.includes('media') || selectedCatId === 'svc-2') {
+      return "e.g. 1000 (per session)";
+    }
+    if (catLower.includes('repair') || catLower.includes('tech') || selectedCatId === 'svc-5') {
+      return "e.g. 500 (diagnostics / installation)";
+    }
+    if (catLower.includes('barber') || catLower.includes('hair') || selectedCatId === 'svc-4') {
+      return "e.g. 150 (fade haircut)";
+    }
+    if (catLower.includes('design') || catLower.includes('graphic') || selectedCatId === 'svc-3') {
+      return "e.g. 300 (per poster/logo)";
+    }
+    if (catLower.includes('tutor') || catLower.includes('academic') || selectedCatId === 'svc-6') {
+      return "e.g. 250 (per hour session)";
+    }
+    return "e.g. 150";
+  };
 
   // Move image order
   const handleMoveImage = (idx: number, direction: 'left' | 'right') => {
@@ -651,7 +986,14 @@ export default function NewListing() {
     }
 
     if (listingType === 'event') {
-      setSelectedBannerFile(file);
+      // Immediately compress/resize banner image client-side to ensure swift transfer
+      compressAndResizeBannerImage(file, 1600, 0.8)
+        .then((res) => {
+          setSelectedBannerFile(res.blob);
+        })
+        .catch(() => {
+          setSelectedBannerFile(file);
+        });
     }
 
     setUploading(true);
@@ -687,6 +1029,7 @@ export default function NewListing() {
 
   const handleDeletePhoto = (idx: number = 0) => {
     setImages([]);
+    setSelectedBannerFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     toast.info('Photo removed. You can pick another image.');
   };
@@ -723,11 +1066,11 @@ export default function NewListing() {
       if (!title.trim() || title.length < 5) {
         return toast.error('Please enter a descriptive title (min 5 characters)');
       }
-      if (!description.trim() || description.length < 15) {
+      if (listingType !== 'event' && (!description.trim() || description.length < 15)) {
         return toast.error('Please fill description details (min 15 characters to educate buyers)');
       }
       if (!location.trim()) {
-        return toast.error('Specify collection spot near Kibabii Campus');
+        return toast.error(listingType === 'event' ? 'Location is required' : 'Specify collection spot near Kibabii Campus');
       }
 
       // Check prices
@@ -750,10 +1093,10 @@ export default function NewListing() {
           return toast.error('Direct WhatsApp contact or Link is required');
         }
       } else if (listingType === 'event') {
-        if (!typeData.event_venue) {
-          return toast.error('Venue spot is required');
+        if (!typeData.event_date) {
+          return toast.error('Event date is required');
         }
-        if (!typeData.event_is_free && !typeData.event_ticket_price) {
+        if (!typeData.event_is_free && (!typeData.event_ticket_price || parseFloat(typeData.event_ticket_price) <= 0)) {
           return toast.error('Paid events require ticket value KES specified');
         }
       }
@@ -821,7 +1164,7 @@ export default function NewListing() {
               : (Number(productPrice) || 0)),
         original_price: null,
         quantity: 1,
-        is_negotiable: false,
+        is_negotiable: listingType === 'product' ? isNegotiable : false,
         condition: conditionCode === "new" ? "New" : (chosenCondObj?.name || "Like New"),
         condition_id: selectedConditionId || null,
         condition_code: conditionCode,
@@ -861,10 +1204,10 @@ export default function NewListing() {
         event_type: validEventType,
         event_date: typeData.event_date || new Date().toISOString().split("T")[0],
         start_time: typeData.event_time || null,
-        location_text: location || typeData.event_venue || "Kibabii Campus",
+        location_text: location.trim() || "Kibabii Campus",
         organizer_name: typeData.event_organizer || null,
         is_free: typeData.event_is_free ?? true,
-        ticket_price: typeData.event_ticket_price ? parseFloat(typeData.event_ticket_price) : null,
+        ticket_price: typeData.event_is_free ? null : (typeData.event_ticket_price ? parseFloat(typeData.event_ticket_price) : null),
         max_attendees: typeData.event_max_attendees ? parseInt(typeData.event_max_attendees) : null,
         registration_link: typeData.event_registration_link || null,
         bannerFile: selectedBannerFile
@@ -875,8 +1218,8 @@ export default function NewListing() {
         listingType as any,
         {
           title,
-          description,
-          location: location || typeData.event_venue || typeData.lost_found_exact_location || "Kibabii Campus",
+          description: description || title,
+          location: location.trim() || typeData.lost_found_exact_location || "Kibabii Campus",
           campus_id: selectedCampusId || "8e08c135-e6ec-4387-af3e-110b11d37c07"
         },
         typeSpecificData,
@@ -892,6 +1235,7 @@ export default function NewListing() {
 
       setPublishedId(createdListing?.id || mockId);
       setIsPublished(true);
+      window.scrollTo({ top: 0, behavior: 'instant' });
       const typeLabel =
         listingType === "accommodation" ? "Accommodation" :
         listingType === "service" ? "Service" :
@@ -900,7 +1244,16 @@ export default function NewListing() {
       toast.success(`Submitted! Your ${typeLabel.toLowerCase()} will appear once approved by an admin.`);
     } catch (e: any) {
       console.log("Full error catch details:", e);
-      const errMsg = e?.message || e?.error_description || JSON.stringify(e) || "Unknown connection error.";
+      let errMsg = e?.message || e?.error_description || (typeof e === 'string' ? e : '') || "Unknown connection error.";
+      if (
+        isNetworkLevelError(e) ||
+        errMsg.includes('520') ||
+        errMsg.includes('522') ||
+        errMsg.toLowerCase().includes('failed to fetch') ||
+        errMsg.toLowerCase().includes('timeout')
+      ) {
+        errMsg = 'Upload failed — check your connection and try again';
+      }
       if (errMsg.includes("Not authenticated") && !sellerId) {
         setRpcError(errMsg);
       } else {
@@ -1051,53 +1404,45 @@ export default function NewListing() {
   // SUCCESS PUBLISHED VIEW
   if (isPublished) {
     return (
-      <div className="min-h-screen bg-slate-50/60 pb-20 text-left">
-        {/* Simple Navbar with Back Navigation */}
-        <div className="bg-white border-b py-3 sm:py-4 sticky top-0 z-40 shadow-2xs">
-          <div className="container mx-auto px-4 sm:px-6 flex justify-between items-center max-w-4xl">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  navigate('/dashboard/listings');
-                }}
-                className="rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold flex items-center gap-1.5 h-9 px-2.5 sm:px-3 text-xs cursor-pointer shadow-2xs"
-                title="Back to My Listings"
-              >
-                <ArrowLeft className="w-4 h-4 text-slate-700" />
-                <span>Back</span>
-              </Button>
+      <div className="space-y-6 text-left pb-16">
+        {/* Prominent Top Back Navigation Bar */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <Button
+              onClick={() => navigate('/dashboard/listings')}
+              className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl h-10 px-4 text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-transform active:scale-95 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+              <span>Back to My Listings</span>
+            </Button>
 
-              <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-                <span className="font-black text-lg text-secondary tracking-tight">Kibabii<span className="text-primary">Mart</span></span>
-                <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2.5 py-1 rounded hidden sm:inline">Seller Center</span>
-              </Link>
-            </div>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/dashboard')}
+              className="rounded-xl border-slate-200 hover:bg-slate-100 text-slate-700 font-bold h-10 px-3.5 text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              <LayoutDashboard className="w-4 h-4 text-slate-500" />
+              <span>Seller Dashboard</span>
+            </Button>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" asChild className="rounded-xl border-slate-200 text-xs font-bold h-9">
-                <Link to="/dashboard/listings" className="flex items-center gap-1.5">
-                  <FolderOpen className="w-3.5 h-3.5 text-slate-600" />
-                  <span className="hidden sm:inline">My Listings</span>
-                </Link>
-              </Button>
-
-              <Button variant="ghost" size="sm" asChild className="rounded-xl text-slate-600 hover:text-slate-900 text-xs font-bold h-9">
-                <Link to="/" className="flex items-center gap-1.5">
-                  <Home className="w-3.5 h-3.5 text-primary" />
-                  <span className="hidden md:inline">Marketplace</span>
-                </Link>
-              </Button>
-            </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/')}
+              className="rounded-xl text-slate-600 hover:text-slate-900 font-bold h-10 px-3 text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              <Home className="w-4 h-4 text-primary" />
+              <span>Marketplace Home</span>
+            </Button>
           </div>
         </div>
 
-        {/* Back navigation breadcrumb bar */}
-        <div className="container mx-auto px-4 mt-6 max-w-2xl flex items-center justify-between">
+        {/* Back navigation breadcrumbs */}
+        <div className="flex items-center justify-between text-xs text-slate-500 font-medium px-1">
           <button
             onClick={() => navigate('/dashboard/listings')}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-primary transition-colors cursor-pointer group"
+            className="inline-flex items-center gap-1.5 font-bold text-slate-600 hover:text-primary transition-colors cursor-pointer group"
           >
             <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-primary group-hover:-translate-x-0.5 transition-transform" />
             <span>Back to My Listings</span>
@@ -1105,40 +1450,62 @@ export default function NewListing() {
 
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
+            className="inline-flex items-center gap-1.5 font-bold text-slate-500 hover:text-slate-800 transition-colors"
           >
             <Store className="w-3.5 h-3.5 text-emerald-600" />
             <span>Return to Marketplace</span>
           </Link>
         </div>
 
-        <div className="container mx-auto px-4 mt-6 max-w-2xl">
-          <Card className="border-none shadow-xl rounded-[32px] overflow-hidden bg-white p-8 space-y-8 text-center relative">
-            <div className="absolute -top-12 left-1/2 -translate-x-1/2 h-24 w-24 bg-emerald-50 rounded-full flex items-center justify-center border-4 border-white shadow-md">
-              <motion.div 
-                initial={{ scale: 0.5 }}
-                animate={{ scale: 1 }}
-                className="h-14 w-14 bg-emerald-555 rounded-full flex items-center justify-center text-white"
+        <div className="max-w-2xl mx-auto">
+          <Card className="border-none shadow-xl rounded-[32px] overflow-hidden bg-white p-6 sm:p-8 space-y-6 sm:space-y-8 text-center relative">
+            {/* Top Back Action within Card */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard/listings')}
+                className="text-xs font-bold text-slate-600 hover:text-primary flex items-center gap-1.5 cursor-pointer transition-colors"
               >
-                <Check className="h-8 w-8 stroke-[3]" />
-              </motion.div>
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to My Listings</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />
+                <span>Dashboard</span>
+              </button>
             </div>
 
-            <div className="pt-10 space-y-3">
-              <span className="text-[10px] uppercase font-black tracking-widest text-amber-600 bg-amber-50 border border-amber-200/60 px-3 py-1 rounded">
-                Pending Admin Approval
-              </span>
-              <h2 className="text-3xl font-black text-slate-900">
-                Submitted for Review!
-              </h2>
-              <p className="text-slate-500 text-sm max-w-md mx-auto leading-relaxed">
-                {`Submitted! Your ${
-                  listingType === 'accommodation' ? 'accommodation listing' :
-                  listingType === 'service' ? 'service' :
-                  listingType === 'lost_found' ? 'lost & found notice' :
-                  listingType === 'event' ? 'event' : 'product'
-                } will appear once approved by an admin.`}
-              </p>
+            <div className="relative pt-6">
+              <div className="h-16 w-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-md">
+                <motion.div 
+                  initial={{ scale: 0.5 }}
+                  animate={{ scale: 1 }}
+                  className="h-10 w-10 bg-emerald-600 rounded-full flex items-center justify-center text-white"
+                >
+                  <Check className="h-6 w-6 stroke-[3]" />
+                </motion.div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase font-black tracking-widest text-amber-600 bg-amber-50 border border-amber-200/60 px-3 py-1 rounded">
+                  Pending Admin Approval
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
+                  Submitted for Review!
+                </h2>
+                <p className="text-slate-500 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
+                  {`Submitted! Your ${
+                    listingType === 'accommodation' ? 'accommodation listing' :
+                    listingType === 'service' ? 'service' :
+                    listingType === 'lost_found' ? 'lost & found notice' :
+                    listingType === 'event' ? 'event' : 'product'
+                  } will appear once approved by an admin.`}
+                </p>
+              </div>
             </div>
 
             {/* Simulated Live Card View */}
@@ -1156,10 +1523,11 @@ export default function NewListing() {
               {publishedId && (
                 <Link
                   to={listingType === 'product' ? `/products/${publishedId}` : `/listing/${publishedId}`}
-                  className="shrink-0 p-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-primary transition-colors shadow-2xs"
+                  className="shrink-0 p-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-primary transition-colors shadow-2xs flex items-center gap-1.5 text-xs font-bold"
                   title="View published item"
                 >
                   <ExternalLink className="w-4 h-4" />
+                  <span className="hidden sm:inline">Preview</span>
                 </Link>
               )}
             </div>
@@ -1197,7 +1565,7 @@ export default function NewListing() {
                 </a>
                 <button 
                   onClick={handleCopyShareLink}
-                  className="p-3 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-2xl text-xs font-black flex flex-col items-center gap-2 transition"
+                  className="p-3 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-2xl text-xs font-black flex flex-col items-center gap-2 transition cursor-pointer"
                 >
                   <LinkIcon strokeWidth={3} className="h-5 w-5" />
                   <span>Copy Link</span>
@@ -1205,22 +1573,41 @@ export default function NewListing() {
               </div>
             </div>
 
-            <div className="pt-4 flex flex-col sm:flex-row gap-3">
-              <Button asChild className="flex-1 rounded-xl bg-secondary hover:bg-secondary/95 text-white font-bold h-12">
-                <Link to="/dashboard/listings">
-                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to My Listings
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="flex-1 rounded-xl border-slate-200 text-slate-700 font-bold h-12">
-                <Link to="/">
-                  <Home className="w-4 h-4 mr-2 text-primary" /> Back to Marketplace
-                </Link>
-              </Button>
-            </div>
-            <div className="flex justify-center pt-1">
-              <Button onClick={handleResetForm} variant="ghost" className="text-xs text-slate-600 hover:text-slate-900 font-bold cursor-pointer">
-                ➕ Create Another Listing
-              </Button>
+            {/* Main Action Buttons */}
+            <div className="pt-6 space-y-3 border-t border-slate-100">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button 
+                  onClick={() => navigate('/dashboard/listings')}
+                  className="flex-1 rounded-xl bg-primary hover:bg-primary-hover text-white font-extrabold h-12 text-sm shadow-md shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-98"
+                >
+                  <ArrowLeft className="w-4 h-4 stroke-[2.5]" /> Back to My Listings
+                </Button>
+                <Button 
+                  onClick={() => navigate('/dashboard')}
+                  variant="outline" 
+                  className="flex-1 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold h-12 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <LayoutDashboard className="w-4 h-4 text-slate-600" /> Back to Dashboard
+                </Button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => navigate('/')} 
+                  className="rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 h-9 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Home className="w-3.5 h-3.5 text-primary" /> Return to Marketplace
+                </Button>
+                <span className="hidden sm:inline text-slate-300 self-center">•</span>
+                <Button 
+                  onClick={handleResetForm} 
+                  variant="ghost" 
+                  className="rounded-xl text-xs font-bold text-primary hover:text-primary-hover h-9 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  ➕ Create Another Listing
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
@@ -1629,7 +2016,7 @@ export default function NewListing() {
                       <Input
                         value={inputUrl}
                         onChange={(e) => setInputUrl(e.target.value)}
-                        placeholder="https://... photo link"
+                        placeholder="https://images.unsplash.com/... or direct image link"
                         className="h-8 text-xs rounded-xl border-slate-200"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -1767,21 +2154,159 @@ export default function NewListing() {
               <Card className="border-none shadow-sm rounded-[32px] overflow-hidden bg-white p-6 sm:p-8 space-y-6">
                 <div className="text-left space-y-2">
                   <h3 className="text-2xl font-black text-slate-900 leading-tight">Specify Item Details</h3>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Specify precise specs and qualities to secure quick trades.</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    {listingType === 'event'
+                      ? 'Give people the key details so they know where and when to show up.'
+                      : 'Add the details buyers need to decide fast.'}
+                  </p>
                 </div>
 
+                {listingType === 'event' ? (
+                  <div className="space-y-6">
+                    {/* 1. Title */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Event Title & Theme</Label>
+                      <Input
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value.slice(0, 80))}
+                        placeholder={getTitlePlaceholder()}
+                        className="h-12 rounded-xl focus-visible:ring-primary font-bold text-slate-800"
+                      />
+                      <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 font-mono">
+                        <span>{getTitleGuideText()}</span>
+                        <span>{title.length} / 80 Characters (Min 5)</span>
+                      </div>
+                    </div>
+
+                    {/* 2. Event Date & Time */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Event Date</Label>
+                        <Input
+                          type="date"
+                          value={typeData.event_date}
+                          onChange={(e) => setTypeData({ ...typeData, event_date: e.target.value })}
+                          className="h-12 rounded-xl text-slate-700 font-medium"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Event Time</Label>
+                        <Input
+                          type="time"
+                          value={typeData.event_time}
+                          onChange={(e) => setTypeData({ ...typeData, event_time: e.target.value })}
+                          className="h-12 rounded-xl text-slate-700 font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 3. Campus (pre-filled) */}
+                    {dbCampuses.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Campus</Label>
+                        <Select
+                          value={selectedCampusId}
+                          onValueChange={(val) => {
+                            hasUserSelectedCampus.current = true;
+                            setSelectedCampusId(val);
+                          }}
+                        >
+                          <SelectTrigger className="h-12 rounded-xl bg-white border-2">
+                            <SelectValue placeholder="Select Campus">
+                              {(() => {
+                                const matched = dbCampuses.find((c) => c.id === selectedCampusId);
+                                return matched ? `${matched.name} (${matched.short_name}) - ${matched.town}` : "Select Campus";
+                              })()}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl">
+                            {dbCampuses.map((campus) => (
+                              <SelectItem
+                                key={campus.id}
+                                value={campus.id}
+                                label={`${campus.name} (${campus.short_name}) - ${campus.town}`}
+                              >
+                                {campus.name} ({campus.short_name}) - {campus.town}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* 4. Location */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Venue / Location on Campus</Label>
+                      <Input
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="e.g. Main Auditorium LH-1, University Pavilion, or Student Square"
+                        className="h-12 rounded-xl font-medium text-slate-800"
+                      />
+                      <p className="text-[11px] text-slate-400 font-medium">Specific hall, grounds, or room where attendees should assemble.</p>
+                    </div>
+
+                    {/* 5. "This Event is Free" toggle (revealing Ticket Price input only when unchecked) */}
+                    <div className="space-y-4 pt-1">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="is-free-checked" 
+                          checked={typeData.event_is_free}
+                          onCheckedChange={(checked) => setTypeData({ ...typeData, event_is_free: !!checked })}
+                        />
+                        <Label htmlFor="is-free-checked" className="text-sm font-bold text-slate-700 cursor-pointer">
+                          This Event is Free (No Ticket Required)
+                        </Label>
+                      </div>
+
+                      {!typeData.event_is_free && (
+                        <div className="space-y-2">
+                          <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Ticket Price (KES)</Label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              value={typeData.event_ticket_price}
+                              onChange={(e) => setTypeData({ ...typeData, event_ticket_price: e.target.value })}
+                              placeholder="e.g. 100 or 250 (Early Bird)"
+                              className="h-12 rounded-xl pl-12 font-bold focus-visible:ring-primary"
+                            />
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400 text-xs">KES</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-medium">Regular student entrance fee per attendee.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Step 4 Navigation Buttons */}
+                    <div className="pt-6 flex flex-col-reverse sm:flex-row justify-between items-center gap-3 border-t border-slate-100">
+                      <Button
+                        variant="outline"
+                        onClick={handlePrevStep}
+                        className="w-full sm:w-auto rounded-xl font-bold h-11 px-5 border-slate-200 text-slate-700 hover:bg-slate-50"
+                      >
+                        <ArrowLeft className="h-4 w-4 mr-2" /> Back to Category
+                      </Button>
+                      <Button
+                        onClick={handleNextStep}
+                        className="w-full sm:w-auto bg-primary hover:bg-primary/95 text-white rounded-xl font-bold h-11 px-7 flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-primary/20"
+                      >
+                        Continue to Contact Info <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
                 <div className="space-y-6">
-                  {/* General Title / Headline */}
+                  {/* General Title */}
                   <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Title / Display Headline</Label>
+                    <Label className="text-xs font-black uppercase tracking-wider text-slate-400">{getTitleLabel()}</Label>
                     <Input
                       value={title}
                       onChange={(e) => setTitle(e.target.value.slice(0, 80))}
-                      placeholder="e.g. Sterling silver ring or spacious Hostel accommodation..."
+                      placeholder={getTitlePlaceholder()}
                       className="h-12 rounded-xl focus-visible:ring-primary font-bold text-slate-800"
                     />
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 font-mono">
-                      <span>{title.length < 10 && title.length > 0 && "💡 Headline brief. Try including brand or model."}</span>
+                      <span>{getTitleGuideText()}</span>
                       <span>{title.length} / 80 Characters (Min 5)</span>
                     </div>
                   </div>
@@ -1789,17 +2314,50 @@ export default function NewListing() {
                   {/* Pricing inputs adaptive */}
                   {listingType === 'product' && (
                     <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Price (KES)</Label>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            value={productPrice}
-                            onChange={(e) => setProductPrice(e.target.value)}
-                            placeholder="e.g. 1500"
-                            className="h-12 rounded-xl pl-12 font-bold focus-visible:ring-primary"
-                          />
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400 text-xs">KES</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+                        <div className="sm:col-span-7 space-y-2">
+                          <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Price (KES)</Label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              value={productPrice}
+                              onChange={(e) => setProductPrice(e.target.value)}
+                              placeholder={getProductPricePlaceholder()}
+                              className="h-12 rounded-xl pl-12 font-bold focus-visible:ring-primary"
+                            />
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400 text-xs">KES</span>
+                          </div>
+                        </div>
+
+                        {/* Dedicated Price is negotiable Yes/No toggle */}
+                        <div className="sm:col-span-5 space-y-2">
+                          <Label className="text-xs font-black uppercase tracking-wider text-slate-400 block">
+                            Price is negotiable
+                          </Label>
+                          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 h-12">
+                            <button
+                              type="button"
+                              onClick={() => setIsNegotiable(true)}
+                              className={`flex-1 h-full rounded-lg text-xs font-black transition-all cursor-pointer ${
+                                isNegotiable
+                                  ? 'bg-primary text-white shadow-xs'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              Yes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsNegotiable(false)}
+                              className={`flex-1 h-full rounded-lg text-xs font-black transition-all cursor-pointer ${
+                                !isNegotiable
+                                  ? 'bg-white text-slate-900 shadow-xs'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              No
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -1812,7 +2370,7 @@ export default function NewListing() {
                           type="tel"
                           value={productWhatsappNumber}
                           onChange={(e) => setProductWhatsappNumber(e.target.value)}
-                          placeholder="e.g. 0712345678, 0712 345-678, +254712345678"
+                          placeholder="e.g. 0712345678 or +254712345678"
                           className="h-12 rounded-xl font-bold focus-visible:ring-primary"
                         />
                         <p className="text-[11px] text-slate-400 font-medium">
@@ -1826,25 +2384,27 @@ export default function NewListing() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* monthly rent */}
                       <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Monthly Rent KES</Label>
+                        <Label className="text-xs font-bold text-slate-400 uppercase">Monthly / Semester Rent (KES)</Label>
                         <Input
                           type="number"
                           value={typeData.accommodation_rent}
                           onChange={(e) => setTypeData({ ...typeData, accommodation_rent: e.target.value })}
-                          placeholder="e.g. 5500"
+                          placeholder="e.g. 4500 (per month) or 16000 (per semester)"
                           className="h-11 rounded-lg"
                         />
+                        <p className="text-[10px] text-slate-400">Rent amount charged per month or per semester.</p>
                       </div>
                       {/* deposit */}
                       <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Deposit KES (Optional)</Label>
+                        <Label className="text-xs font-bold text-slate-400 uppercase">Refundable Deposit KES (Optional)</Label>
                         <Input
                           type="number"
                           value={typeData.accommodation_deposit}
                           onChange={(e) => setTypeData({ ...typeData, accommodation_deposit: e.target.value })}
-                          placeholder="e.g. 5000"
+                          placeholder="e.g. 2500 (Refundable deposit)"
                           className="h-11 rounded-lg"
                         />
+                        <p className="text-[10px] text-slate-400">Security deposit returned upon vacating.</p>
                       </div>
                       {/* accommodation type select */}
                       <div className="space-y-1">
@@ -1872,7 +2432,7 @@ export default function NewListing() {
                           min={1}
                           value={typeData.bedrooms}
                           onChange={(e) => setTypeData({ ...typeData, bedrooms: e.target.value })}
-                          placeholder="Min 1"
+                          placeholder="e.g. 1 (Single/Bedsitter) or 2"
                           className="h-11 rounded-lg"
                         />
                       </div>
@@ -1884,19 +2444,19 @@ export default function NewListing() {
                           min={1}
                           value={typeData.bathrooms}
                           onChange={(e) => setTypeData({ ...typeData, bathrooms: e.target.value })}
-                          placeholder="Min 1"
+                          placeholder="e.g. 1 (Private inside room)"
                           className="h-11 rounded-lg"
                         />
                       </div>
                       {/* available rooms */}
                       <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Available Rooms</Label>
+                        <Label className="text-xs font-bold text-slate-400 uppercase">Available Rooms / Vacancies</Label>
                         <Input
                           type="number"
                           min={1}
                           value={typeData.available_rooms}
                           onChange={(e) => setTypeData({ ...typeData, available_rooms: e.target.value })}
-                          placeholder="Min 1"
+                          placeholder="e.g. 3 vacant rooms available"
                           className="h-11 rounded-lg"
                         />
                       </div>
@@ -1908,29 +2468,30 @@ export default function NewListing() {
                           step="0.1"
                           value={typeData.accommodation_distance_km}
                           onChange={(e) => setTypeData({ ...typeData, accommodation_distance_km: e.target.value })}
-                          placeholder="e.g. 0.5"
+                          placeholder="e.g. 0.3 km to Main Gate"
                           className="h-11 rounded-lg"
                         />
                       </div>
                       {/* distance walk description */}
                       <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Distance Walk (Optional description)</Label>
+                        <Label className="text-xs font-bold text-slate-400 uppercase">Walking Distance Description</Label>
                         <Input
                           value={typeData.accommodation_distance}
                           onChange={(e) => setTypeData({ ...typeData, accommodation_distance: e.target.value })}
-                          placeholder="e.g. 10 mins walk from Gate B"
+                          placeholder="e.g. 5 mins walk from Gate B, near Total Petrol Station"
                           className="h-11 rounded-lg"
                         />
                       </div>
                       {/* rep contact */}
                       <div className="space-y-1 md:col-span-2">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Landlord/House Rep Contact</Label>
+                        <Label className="text-xs font-bold text-slate-400 uppercase">Landlord / Caretaker Phone Contact</Label>
                         <Input
                           value={typeData.accommodation_contact}
                           onChange={(e) => setTypeData({ ...typeData, accommodation_contact: e.target.value })}
-                          placeholder="Inquiry Mobile"
+                          placeholder="e.g. Caretaker 0712345678 or Landlord 0722000000"
                           className="h-11 rounded-lg"
                         />
+                        <p className="text-[11px] text-slate-400 font-medium">Inquiry phone number for student room viewing appointments.</p>
                       </div>
                     </div>
                   )}
@@ -1939,34 +2500,37 @@ export default function NewListing() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* starting price */}
                       <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Starting Price KES</Label>
+                        <Label className="text-xs font-bold text-slate-400 uppercase">Starting Rate / Base Price (KES)</Label>
                         <Input
                           type="number"
                           value={typeData.service_starting_price}
                           onChange={(e) => setTypeData({ ...typeData, service_starting_price: e.target.value })}
-                          placeholder="e.g. 100"
+                          placeholder={getServicePricePlaceholder()}
                           className="h-11 rounded-lg"
                         />
+                        <p className="text-[11px] text-slate-400 font-medium">Starting fee for your basic service package, typing/printing per page, or consultation.</p>
                       </div>
                       {/* working hours */}
                       <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Working Hours</Label>
+                        <Label className="text-xs font-bold text-slate-400 uppercase">Operating / Working Hours</Label>
                         <Input
                           value={typeData.service_working_hours}
                           onChange={(e) => setTypeData({ ...typeData, service_working_hours: e.target.value })}
-                          placeholder="e.g. 8:00 AM - 9:00 PM"
+                          placeholder="e.g. Mon - Sat: 8:00 AM - 9:00 PM (or 24/7 online orders)"
                           className="h-11 rounded-lg"
                         />
+                        <p className="text-[11px] text-slate-400 font-medium">When students can visit your cyber stall or order work.</p>
                       </div>
                       {/* service whatsapp link */}
                       <div className="space-y-1 md:col-span-2">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Service Order Whatsapp Mobile</Label>
+                        <Label className="text-xs font-bold text-slate-400 uppercase">Service Order WhatsApp Mobile (Direct Orders)</Label>
                         <Input
                           value={typeData.service_whatsapp}
                           onChange={(e) => setTypeData({ ...typeData, service_whatsapp: e.target.value })}
-                          placeholder="Direct WhatsApp contact number"
+                          placeholder="e.g. 0712345678 or +254712345678"
                           className="h-11 rounded-lg"
                         />
+                        <p className="text-[11px] text-slate-400 font-medium">WhatsApp line where comrades submit documents to print, request quotes, or book slots.</p>
                       </div>
                     </div>
                   )}
@@ -1975,13 +2539,14 @@ export default function NewListing() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Exact incident spot */}
                       <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Incident Exact Spot</Label>
+                        <Label className="text-xs font-bold text-slate-400 uppercase">Where Item Was Lost or Found</Label>
                         <Input
                           value={typeData.lost_found_exact_location}
                           onChange={(e) => setTypeData({ ...typeData, lost_found_exact_location: e.target.value })}
-                          placeholder="e.g. Near Auditorium LH-1"
+                          placeholder="e.g. Science Complex Lecture Hall 2 (3rd row) or Main Library 1st Floor"
                           className="h-11 rounded-lg"
                         />
+                        <p className="text-[11px] text-slate-400 font-medium">Detailed spot on campus to help verify or track the incident.</p>
                       </div>
                       {/* date */}
                       <div className="space-y-1">
@@ -1995,61 +2560,15 @@ export default function NewListing() {
                       </div>
                       {/* contact finder */}
                       <div className="space-y-1 md:col-span-2">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Contact Finder or Owner info</Label>
+                        <Label className="text-xs font-bold text-slate-400 uppercase">Contact Finder or Safe Keeping Office</Label>
                         <Input
                           value={typeData.lost_found_contact}
                           onChange={(e) => setTypeData({ ...typeData, lost_found_contact: e.target.value })}
-                          placeholder="Owner Finder Name & Mobile"
+                          placeholder="e.g. Finder: Daniel 0712345678 (or Collect at Security Gate A Desk)"
                           className="h-11 rounded-lg"
                         />
+                        <p className="text-[11px] text-slate-400 font-medium">Owner or finder contact to coordinate the return and claim process.</p>
                       </div>
-                    </div>
-                  )}
-
-                  {listingType === 'event' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Campus Venue spot</Label>
-                        <Input
-                          value={typeData.event_venue}
-                          onChange={(e) => setTypeData({ ...typeData, event_venue: e.target.value })}
-                          placeholder="e.g. Main Quad Hall"
-                          className="h-11 rounded-lg"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-400 uppercase">Event Date</Label>
-                        <Input
-                          type="date"
-                          value={typeData.event_date}
-                          onChange={(e) => setTypeData({ ...typeData, event_date: e.target.value })}
-                          className="h-11 rounded-lg"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between items-center pt-2">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox 
-                              id="is-free-checked" 
-                              checked={typeData.event_is_free}
-                              onCheckedChange={(checked) => setTypeData({ ...typeData, event_is_free: !!checked })}
-                            />
-                            <Label htmlFor="is-free-checked" className="text-xs font-bold text-slate-700 cursor-pointer">This Event is Free</Label>
-                          </div>
-                        </div>
-                      </div>
-                      {!typeData.event_is_free && (
-                        <div className="space-y-1">
-                          <Label className="text-xs font-bold text-slate-400 uppercase">Ticket Price KES</Label>
-                          <Input
-                            type="number"
-                            value={typeData.event_ticket_price}
-                            onChange={(e) => setTypeData({ ...typeData, event_ticket_price: e.target.value })}
-                            placeholder="e.g. 200"
-                            className="h-11 rounded-lg"
-                          />
-                        </div>
-                      )}
                     </div>
                   )}
 
@@ -2058,7 +2577,7 @@ export default function NewListing() {
                     {/* Live Condition select */}
                     {listingType === 'product' && dbConditions.length > 0 && (
                       <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Condition Quality State</Label>
+                        <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Condition</Label>
                         <RadioGroup
                           value={selectedConditionId}
                           onValueChange={setSelectedConditionId}
@@ -2113,8 +2632,14 @@ export default function NewListing() {
                     {/* Live Campus select */}
                     {dbCampuses.length > 0 && (
                       <div className="space-y-2 md:col-span-2">
-                        <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Campus Branch Location</Label>
-                        <Select value={selectedCampusId} onValueChange={setSelectedCampusId}>
+                        <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Campus</Label>
+                        <Select
+                          value={selectedCampusId}
+                          onValueChange={(val) => {
+                            hasUserSelectedCampus.current = true;
+                            setSelectedCampusId(val);
+                          }}
+                        >
                           <SelectTrigger className="h-11 rounded-xl bg-white border-2">
                             <SelectValue placeholder="Select Campus">
                               {(() => {
@@ -2143,29 +2668,38 @@ export default function NewListing() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1 col-span-2">
                       <Label className="text-xs font-bold text-slate-400 uppercase">
-                        {listingType === 'accommodation' ? 'Location / Property Address' : 'Campus Collection spot Area'}
+                        {getLocationLabel()}
                       </Label>
                       <Input
                         value={location}
                         onChange={(e) => setLocation(e.target.value)}
-                        placeholder={listingType === 'accommodation' ? "e.g. Kibabii Town, Milimani Estate, House No. 12" : "e.g. Soweto Hostel block A or Hall 2"}
+                        placeholder={getLocationPlaceholder()}
                         className="h-11 rounded-lg"
                       />
+                      <p className="text-[11px] text-slate-400 font-medium mt-1">
+                        {getLocationGuideText()}
+                      </p>
                     </div>
                   </div>
 
                   {/* Description long fields */}
                   <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase tracking-wider text-slate-400">Detailed Specifications</Label>
+                    <Label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                      {listingType === 'service' ? 'Service Details, Offerings & Turnaround' :
+                       listingType === 'accommodation' ? 'Property Description, Amenities & Terms' :
+                       listingType === 'lost_found' ? 'Detailed Item Description & Claim Process' :
+                       'Detailed Description & Specifications'}
+                    </Label>
                     <textarea
                       value={description}
                       onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
-                      placeholder="Write negotiable terms, defects, pages completeness, battery wellness, size or accessories..."
+                      placeholder={getDescriptionPlaceholder()}
                       rows={5}
                       className="w-full border rounded-2xl p-4 text-xs font-medium resize-none focus-visible:outline-none focus:ring-2 focus:ring-primary bg-slate-55/15"
                     />
-                    <div className="text-[10px] text-right font-bold text-slate-400 font-mono">
-                      {description.length} / 1000 Characters (Min 15)
+                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 font-mono">
+                      <span>{getDescriptionGuideText()}</span>
+                      <span>{description.length} / 1000 Characters (Min 15)</span>
                     </div>
                   </div>
 
@@ -2186,6 +2720,7 @@ export default function NewListing() {
                     </Button>
                   </div>
                 </div>
+                )}
               </Card>
             )}
 
@@ -2200,13 +2735,18 @@ export default function NewListing() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold text-slate-400">Seller Profile Name</Label>
+                      <Label className="text-xs font-bold text-slate-400">
+                        {listingType === 'service' ? 'Service / Business Name (e.g. Cyber Name)' : 'Seller Profile Name'}
+                      </Label>
                       <Input
                         value={sellerName}
                         onChange={(e) => setSellerName(e.target.value)}
-                        placeholder="e.g. Dan Comrade"
+                        placeholder={listingType === 'service' ? "e.g. Brayo Cyber & Printing Services (or Dan Mwangi)" : "e.g. Dan Comrade"}
                         className="h-11 rounded-lg font-bold"
                       />
+                      <p className="text-[10px] text-slate-400">
+                        {listingType === 'service' ? 'This name appears on your service card, search results, and chat (e.g. Brayo Cyber).' : 'Name shown to buyers on your listing.'}
+                      </p>
                     </div>
 
                     <div className="space-y-1">
@@ -2222,14 +2762,14 @@ export default function NewListing() {
                             setWhatsappContact(e.target.value);
                           }
                         }}
-                        placeholder={listingType === 'product' ? 'e.g. 0712345678 (optional)' : 'e.g. 254712345678'}
+                        placeholder="e.g. 0712345678 or +254712345678"
                         className="h-11 rounded-lg font-mono font-bold"
                       />
-                      {listingType === 'product' && (
-                        <p className="text-[10px] text-slate-400">
-                          Optional: Leave blank to use your profile phone number fallback (if enabled in settings).
-                        </p>
-                      )}
+                      <p className="text-[10px] text-slate-400">
+                        {listingType === 'product'
+                          ? 'Optional: Leave blank to use your profile phone number fallback (if enabled in settings).'
+                          : 'Direct active mobile number for WhatsApp orders, inquiries, or claims.'}
+                      </p>
                     </div>
                   </div>
 
@@ -2309,9 +2849,16 @@ export default function NewListing() {
                           </span>
                           <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight line-clamp-1">{title || 'Untitled Proposal'}</h2>
                         </div>
-                        <span className="shrink-0 text-3xl font-black text-emerald-400 font-mono">
-                          {listingType === 'product' ? `KES ${productPrice}` : `KES ${typeData.accommodation_rent || typeData.service_starting_price || '0'}`}
-                        </span>
+                        <div className="shrink-0 text-right">
+                          <span className="text-3xl font-black text-emerald-400 font-mono block">
+                            {listingType === 'product' ? `KES ${productPrice}` : `KES ${typeData.accommodation_rent || typeData.service_starting_price || '0'}`}
+                          </span>
+                          {listingType === 'product' && isNegotiable && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                              Negotiable
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-300 font-semibold pt-1">
                         <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {location}</span>
@@ -2414,21 +2961,21 @@ export default function NewListing() {
                       {flashConfig.enabled && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                           <div className="space-y-1">
-                            <Label className="text-[10px] uppercase font-bold text-slate-400">Before Discount Price</Label>
+                            <Label className="text-[10px] uppercase font-bold text-slate-400">Before Discount Price (KES)</Label>
                             <Input 
                               type="number"
                               value={flashConfig.orig || ''}
                               onChange={(e) => setFlashConfig({ ...flashConfig, orig: parseInt(e.target.value) || 0 })}
-                              placeholder="Original Price e.g. 2000"
+                              placeholder="e.g. Regular Price 2500"
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-[10px] uppercase font-bold text-slate-400">Flash Promo Price</Label>
+                            <Label className="text-[10px] uppercase font-bold text-slate-400">Flash Promo Price (KES)</Label>
                             <Input 
                               type="number"
                               value={flashConfig.disc || ''}
                               onChange={(e) => setFlashConfig({ ...flashConfig, disc: parseInt(e.target.value) || 0 })}
-                              placeholder="Direct Promo Price e.g. 1500"
+                              placeholder="e.g. Flash Deal Price 1800"
                             />
                           </div>
                         </div>

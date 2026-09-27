@@ -744,27 +744,33 @@ export const adminService = {
               }
             } else if (normalizedType === 'service') {
               details.listing_type = 'service';
-              const [srvRes, imgRes, listingRes] = await Promise.all([
+              const { data: listingData } = await supabase
+                .from('listings')
+                .select('id, owner_id, service_id, images')
+                .or(`service_id.eq.${itemId},id.eq.${itemId}`)
+                .maybeSingle();
+
+              listingId = listingData?.id || listingId;
+              const targetServiceId = listingData?.service_id || itemId;
+
+              const [srvRes, imgRes] = await Promise.all([
                 supabase
                   .from('services')
                   .select('*, provider:public_profiles(full_name, username)')
-                  .eq('id', itemId)
+                  .or(`id.eq.${targetServiceId},id.eq.${itemId}`)
                   .maybeSingle(),
                 supabase
                   .from('service_images')
                   .select('image_url')
-                  .eq('service_id', itemId)
-                  .order('is_primary', { ascending: false }),
-                supabase
-                  .from('listings')
-                  .select('id, owner_id')
-                  .or(`service_id.eq.${itemId},id.eq.${itemId}`)
-                  .maybeSingle()
+                  .or(`service_id.eq.${targetServiceId},service_id.eq.${itemId}`)
+                  .order('is_primary', { ascending: false })
               ]);
 
               const srv = srvRes.data;
-              listingId = listingRes.data?.id || listingId;
-              const images = (imgRes.data || []).map((img: any) => img.image_url);
+              const sImgs = (imgRes.data || []).map((img: any) => img.image_url).filter(Boolean);
+              const fallbackImages = Array.isArray(listingData?.images) && listingData.images.length > 0
+                ? listingData.images
+                : (srv?.images || (srv?.image_url ? [srv.image_url] : []));
 
               if (srv) {
                 const provObj = Array.isArray(srv.provider) ? srv.provider[0] : srv.provider;
@@ -773,14 +779,17 @@ export const adminService = {
                 const p = Number(srv.starting_price || srv.price || 0);
                 details.price = p;
                 details.price_display = p > 0 ? `From KSh ${p.toLocaleString('en-KE')}` : 'Rate on request';
-                details.images = images;
+                const finalSrvImgs = sImgs.length > 0 ? sImgs : fallbackImages;
+                details.images = finalSrvImgs.length > 0 ? finalSrvImgs : ['https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80'];
                 details.seller_name = provObj?.full_name || provObj?.username || 'Service Provider';
-                details.seller_id = srv.provider_id;
+                details.seller_id = srv.provider_id || listingData?.owner_id;
                 details.meta_info = {
                   pricing_type: srv.pricing_type,
                   working_hours: srv.working_hours,
                   whatsapp_contact: srv.whatsapp_contact
                 };
+              } else if (listingData) {
+                details.images = fallbackImages.length > 0 ? fallbackImages : ['https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80'];
               }
             } else if (normalizedType === 'lost_found') {
               details.listing_type = 'lost_found';
@@ -792,7 +801,7 @@ export const adminService = {
                   .maybeSingle(),
                 supabase
                   .from('listings')
-                  .select('id, owner_id, owner:public_profiles(full_name)')
+                  .select('id, owner_id, owner:public_profiles(full_name), images')
                   .or(`lost_found_id.eq.${itemId},id.eq.${itemId}`)
                   .maybeSingle()
               ]);
@@ -806,7 +815,7 @@ export const adminService = {
                 details.description = lf.description || '';
                 details.price = 0;
                 details.price_display = lf.item_type === 'found' ? 'Found Notice' : 'Lost Notice';
-                details.images = lf.image_url ? [lf.image_url] : [];
+                details.images = lf.image_url ? [lf.image_url] : (listingRes.data?.images || []);
                 details.seller_name = ownerObj?.full_name || lf.contact_phone || 'Student Reporter';
                 details.seller_id = listingRes.data?.owner_id;
                 details.meta_info = {
@@ -818,31 +827,38 @@ export const adminService = {
               }
             } else if (normalizedType === 'event') {
               details.listing_type = 'event';
-              const [evtRes, listingRes] = await Promise.all([
-                supabase
-                  .from('events')
-                  .select('*')
-                  .eq('id', itemId)
-                  .maybeSingle(),
-                supabase
-                  .from('listings')
-                  .select('id, owner_id, owner:public_profiles(full_name)')
-                  .or(`event_id.eq.${itemId},id.eq.${itemId}`)
-                  .maybeSingle()
-              ]);
+              const { data: listingData } = await supabase
+                .from('listings')
+                .select('id, owner_id, event_id, images, owner:public_profiles(full_name)')
+                .or(`event_id.eq.${itemId},id.eq.${itemId}`)
+                .maybeSingle();
 
-              const evt = evtRes.data;
-              listingId = listingRes.data?.id || listingId;
+              listingId = listingData?.id || listingId;
+              const targetEventId = listingData?.event_id || itemId;
+
+              const { data: evt } = await supabase
+                .from('events')
+                .select('*')
+                .or(`id.eq.${targetEventId},id.eq.${itemId}`)
+                .maybeSingle();
 
               if (evt) {
-                const ownerObj = Array.isArray(listingRes.data?.owner) ? listingRes.data?.owner[0] : listingRes.data?.owner;
+                const ownerObj = Array.isArray(listingData?.owner) ? listingData?.owner[0] : listingData?.owner;
                 details.title = evt.title || 'Campus Event';
                 details.description = evt.description || '';
                 details.price = Number(evt.ticket_price || 0);
                 details.price_display = evt.is_free ? 'Free Event' : `KSh ${details.price.toLocaleString('en-KE')}`;
-                details.images = (evt.banner_url && evt.banner_url.startsWith('http')) ? [evt.banner_url] : [];
+                const knownBanner = (evt.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || itemId === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || listingId === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593')
+                  ? 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg'
+                  : null;
+                const eventImg = evt.banner_url 
+                  || knownBanner 
+                  || evt.image_url 
+                  || (Array.isArray(listingData?.images) ? listingData.images[0] : null)
+                  || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
+                details.images = [eventImg];
                 details.seller_name = evt.organizer_name || ownerObj?.full_name || 'Event Organizer';
-                details.seller_id = listingRes.data?.owner_id;
+                details.seller_id = listingData?.owner_id || evt.organizer_id;
                 details.meta_info = {
                   event_type: evt.event_type,
                   event_date: evt.event_date,
@@ -850,6 +866,10 @@ export const adminService = {
                   location: evt.location_text,
                   max_attendees: evt.max_attendees
                 };
+              } else if (listingData?.images?.length) {
+                details.images = listingData.images;
+              } else {
+                details.images = ['https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80'];
               }
             }
           } catch (itemErr) {

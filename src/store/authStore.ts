@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { isValidUuid, toValidUuid } from '@/lib/uuid';
+import { toast } from 'sonner';
 
 export interface UserProfile {
   id: string;
@@ -466,7 +467,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         join_date: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
       };
 
-      // Step 2: Persist campus_id and whatsapp_number to the profiles table
+      // Step 2: Persist campus_id and whatsapp_number directly to the profiles table
       try {
         const { error: updateError } = await supabase
           .from('profiles')
@@ -479,7 +480,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
         if (updateError) {
           console.warn('Profile direct update notice, trying upsert:', updateError);
-          await supabase.from('profiles').upsert({
+          const { error: upsertError } = await supabase.from('profiles').upsert({
             id: authUser.id,
             full_name: fullName,
             username: username,
@@ -490,9 +491,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             avatar_url: newStudent.avatar_url,
             role: 'buyer'
           });
+          if (upsertError) {
+            console.error('Failed to persist student campus and WhatsApp number:', upsertError);
+            toast.warning('Account created, but could not save your campus and WhatsApp number. You can update them in your profile settings.');
+          }
         }
       } catch (profErr) {
-        console.warn('Profile synchronization notice:', profErr);
+        console.error('Profile synchronization notice:', profErr);
+        toast.warning('Account created, but could not save your campus and WhatsApp number. You can update them in your profile settings.');
       }
 
       set({ user: authUser, profile: newStudent });

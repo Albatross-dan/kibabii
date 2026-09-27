@@ -283,7 +283,118 @@ export default function AdminDashboard() {
           }
         }
 
-        setAdminListings(mappedQueue);
+        // Hydrate images and prices for all pending review items
+        const fullyHydratedPending = await Promise.all(
+          mappedQueue.map(async (item) => {
+            let price_display = item.price_display || '';
+            let image_url: string | null = item.image_url || (Array.isArray(item.images) && item.images[0]) || null;
+            let images: string[] = Array.isArray(item.images) ? [...item.images] : [];
+
+            try {
+              if (item.listing_type === 'product') {
+                const prodId = item.product_id || item.item_id || item.id;
+                const [pRes, imgRes] = await Promise.all([
+                  supabase.from('products').select('price, currency').or(`id.eq.${prodId},id.eq.${item.id}`).maybeSingle(),
+                  supabase.from('product_images').select('image_url').or(`product_id.eq.${prodId},product_id.eq.${item.id}`).order('is_primary', { ascending: false })
+                ]);
+                if (pRes.data?.price !== undefined) price_display = `KSh ${Number(pRes.data.price).toLocaleString('en-KE')}`;
+                const pImgs = (imgRes.data || []).map((img: any) => img.image_url).filter(Boolean);
+                if (pImgs.length > 0) {
+                  images = pImgs;
+                  image_url = pImgs[0];
+                }
+              } else if (item.listing_type === 'accommodation') {
+                const accId = item.accommodation_id || item.item_id || item.id;
+                const [aRes, imgRes] = await Promise.all([
+                  supabase.from('accommodations').select('price_per_month, rent_amount').or(`id.eq.${accId},id.eq.${item.id}`).maybeSingle(),
+                  supabase.from('accommodation_images').select('image_url').or(`accommodation_id.eq.${accId},accommodation_id.eq.${item.id}`).order('is_primary', { ascending: false })
+                ]);
+                const rent = aRes.data?.price_per_month || aRes.data?.rent_amount;
+                if (rent) price_display = `KSh ${Number(rent).toLocaleString('en-KE')}/mo`;
+                const aImgs = (imgRes.data || []).map((img: any) => img.image_url).filter(Boolean);
+                if (aImgs.length > 0) {
+                  images = aImgs;
+                  image_url = aImgs[0];
+                }
+              } else if (item.listing_type === 'service') {
+                const srvId = item.service_id || item.item_id || item.id;
+                const [sRes, imgRes] = await Promise.all([
+                  supabase.from('services').select('id, starting_price, price, images, image_url').or(`id.eq.${srvId},id.eq.${item.id}`).maybeSingle(),
+                  supabase.from('service_images').select('image_url').or(`service_id.eq.${srvId},service_id.eq.${item.id}`).order('is_primary', { ascending: false })
+                ]);
+                const sPrice = sRes.data?.starting_price || sRes.data?.price;
+                if (sPrice !== undefined && sPrice !== null) price_display = `From KSh ${Number(sPrice).toLocaleString('en-KE')}`;
+                const sImgs = (imgRes.data || []).map((img: any) => img.image_url).filter(Boolean);
+                if (sImgs.length > 0) {
+                  images = sImgs;
+                  image_url = sImgs[0];
+                } else if (sRes.data?.image_url) {
+                  image_url = sRes.data.image_url;
+                  images = [sRes.data.image_url];
+                } else if (Array.isArray(sRes.data?.images) && sRes.data.images.length > 0) {
+                  images = sRes.data.images;
+                  image_url = sRes.data.images[0];
+                } else {
+                  image_url = 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80';
+                  images = [image_url];
+                }
+              } else if (item.listing_type === 'event') {
+                const evtId = item.event_id || item.item_id || item.id;
+                const { data: evt } = await supabase.from('events').select('id, is_free, ticket_price, banner_url, image_url').or(`id.eq.${evtId},id.eq.${item.id}`).maybeSingle();
+                if (evt) {
+                  price_display = evt.is_free ? 'Free Event' : evt.ticket_price ? `KSh ${Number(evt.ticket_price).toLocaleString('en-KE')}` : 'Campus Event';
+                  const evtBanner = evt.banner_url 
+                    || (evt.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || item.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593' ? 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg' : null)
+                    || evt.image_url;
+                  if (evtBanner) {
+                    image_url = evtBanner;
+                    images = [evtBanner];
+                  }
+                }
+                if (!image_url) {
+                  image_url = 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
+                  images = [image_url];
+                }
+              } else if (item.listing_type === 'lost_found') {
+                const lfId = item.lost_found_id || item.item_id || item.id;
+                const { data: lf } = await supabase.from('lost_found_items').select('item_type, image_url').or(`id.eq.${lfId},id.eq.${item.id}`).maybeSingle();
+                if (lf) {
+                  price_display = lf.item_type === 'found' ? 'Found Item Notice' : 'Lost Item Notice';
+                  if (lf.image_url) {
+                    image_url = lf.image_url;
+                    images = [lf.image_url];
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('Pending listing hydration error:', err);
+            }
+
+            // Local listings fallback if images not in DB yet
+            if (!image_url && typeof window !== 'undefined') {
+              try {
+                const localListings = JSON.parse(localStorage.getItem('kibabui_user_listings') || '[]');
+                const match = localListings.find((l: any) => l.id === item.id || l.id === item.listing_id || l.event_id === item.id || l.service_id === item.id);
+                if (match?.images?.[0]) {
+                  image_url = match.images[0];
+                  images = match.images;
+                } else if (match?.event_details?.banner_url) {
+                  image_url = match.event_details.banner_url;
+                  images = [match.event_details.banner_url];
+                }
+              } catch {}
+            }
+
+            return {
+              ...item,
+              price_display: price_display || item.price_display || 'Pending Listing',
+              image_url,
+              images
+            };
+          })
+        );
+
+        setAdminListings(fullyHydratedPending);
       } catch (qErr: any) {
         console.error('Error loading pending queue:', qErr);
         toast.error('Failed to load moderation queue');
@@ -354,43 +465,90 @@ export default function AdminDashboard() {
         rawList.map(async (item) => {
           let price_display = '';
           let image_url: string | null = null;
+          let images: string[] = [];
           const ownerObj = Array.isArray(item.owner) ? item.owner[0] : item.owner;
 
           try {
-            if (item.listing_type === 'product' && item.product_id) {
+            if (item.listing_type === 'product') {
+              const prodId = item.product_id || item.id;
               const [pRes, imgRes] = await Promise.all([
-                supabase.from('products').select('price').eq('id', item.product_id).maybeSingle(),
-                supabase.from('product_images').select('image_url').eq('product_id', item.product_id).order('is_primary', { ascending: false }).limit(1).maybeSingle()
+                supabase.from('products').select('price, currency').or(`id.eq.${prodId},id.eq.${item.id}`).maybeSingle(),
+                supabase.from('product_images').select('image_url').or(`product_id.eq.${prodId},product_id.eq.${item.id}`).order('is_primary', { ascending: false })
               ]);
-              if (pRes.data?.price) price_display = `KSh ${Number(pRes.data.price).toLocaleString('en-KE')}`;
-              image_url = imgRes.data?.image_url || null;
-            } else if (item.listing_type === 'accommodation' && item.accommodation_id) {
+              if (pRes.data?.price !== undefined) price_display = `KSh ${Number(pRes.data.price).toLocaleString('en-KE')}`;
+              const pImgs = (imgRes.data || []).map((img: any) => img.image_url).filter(Boolean);
+              if (pImgs.length > 0) {
+                images = pImgs;
+                image_url = pImgs[0];
+              }
+            } else if (item.listing_type === 'accommodation') {
+              const accId = item.accommodation_id || item.id;
               const [aRes, imgRes] = await Promise.all([
-                supabase.from('accommodations').select('price_per_month, rent_amount').eq('id', item.accommodation_id).maybeSingle(),
-                supabase.from('accommodation_images').select('image_url').eq('accommodation_id', item.accommodation_id).order('is_primary', { ascending: false }).limit(1).maybeSingle()
+                supabase.from('accommodations').select('price_per_month, rent_amount').or(`id.eq.${accId},id.eq.${item.id}`).maybeSingle(),
+                supabase.from('accommodation_images').select('image_url').or(`accommodation_id.eq.${accId},accommodation_id.eq.${item.id}`).order('is_primary', { ascending: false })
               ]);
               const rent = aRes.data?.price_per_month || aRes.data?.rent_amount;
               if (rent) price_display = `KSh ${Number(rent).toLocaleString('en-KE')}/mo`;
-              image_url = imgRes.data?.image_url || null;
-            } else if (item.listing_type === 'service' && item.service_id) {
+              const aImgs = (imgRes.data || []).map((img: any) => img.image_url).filter(Boolean);
+              if (aImgs.length > 0) {
+                images = aImgs;
+                image_url = aImgs[0];
+              }
+            } else if (item.listing_type === 'service') {
+              const srvId = item.service_id || item.id;
               const [sRes, imgRes] = await Promise.all([
-                supabase.from('services').select('starting_price, price').eq('id', item.service_id).maybeSingle(),
-                supabase.from('service_images').select('image_url').eq('service_id', item.service_id).order('is_primary', { ascending: false }).limit(1).maybeSingle()
+                supabase.from('services').select('id, starting_price, price, images, image_url').or(`id.eq.${srvId},id.eq.${item.id}`).maybeSingle(),
+                supabase.from('service_images').select('image_url').or(`service_id.eq.${srvId},service_id.eq.${item.id}`).order('is_primary', { ascending: false })
               ]);
               const sPrice = sRes.data?.starting_price || sRes.data?.price;
-              if (sPrice) price_display = `From KSh ${Number(sPrice).toLocaleString('en-KE')}`;
-              image_url = imgRes.data?.image_url || null;
-            } else if (item.listing_type === 'lost_found' && item.lost_found_id) {
-              const { data: lf } = await supabase.from('lost_found_items').select('item_type, image_url').eq('id', item.lost_found_id).maybeSingle();
+              if (sPrice !== undefined && sPrice !== null) price_display = `From KSh ${Number(sPrice).toLocaleString('en-KE')}`;
+              const sImgs = (imgRes.data || []).map((img: any) => img.image_url).filter(Boolean);
+              if (sImgs.length > 0) {
+                images = sImgs;
+                image_url = sImgs[0];
+              } else if (sRes.data?.image_url) {
+                image_url = sRes.data.image_url;
+                images = [sRes.data.image_url];
+              } else if (Array.isArray(sRes.data?.images) && sRes.data.images.length > 0) {
+                images = sRes.data.images;
+                image_url = sRes.data.images[0];
+              } else {
+                image_url = 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80';
+                images = [image_url];
+              }
+            } else if (item.listing_type === 'lost_found') {
+              const lfId = item.lost_found_id || item.id;
+              const { data: lf } = await supabase.from('lost_found_items').select('item_type, image_url').or(`id.eq.${lfId},id.eq.${item.id}`).maybeSingle();
               price_display = lf?.item_type === 'found' ? 'Found Item Notice' : 'Lost Item Notice';
               image_url = lf?.image_url || null;
-            } else if (item.listing_type === 'event' && item.event_id) {
-              const { data: evt } = await supabase.from('events').select('is_free, ticket_price, banner_url').eq('id', item.event_id).maybeSingle();
+              if (image_url) images = [image_url];
+            } else if (item.listing_type === 'event') {
+              const evtId = item.event_id || item.id;
+              const { data: evt } = await supabase.from('events').select('id, is_free, ticket_price, banner_url, image_url').or(`id.eq.${evtId},id.eq.${item.id}`).maybeSingle();
               price_display = evt?.is_free ? 'Free Event' : evt?.ticket_price ? `KSh ${Number(evt.ticket_price).toLocaleString('en-KE')}` : 'Campus Event';
-              image_url = (evt?.banner_url && evt.banner_url.startsWith('http')) ? evt.banner_url : null;
+              const evtBanner = evt?.banner_url 
+                || (evt?.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || item.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593' ? 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg' : null)
+                || evt?.image_url;
+              image_url = evtBanner || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
+              images = [image_url];
             }
           } catch (hydErr) {
             console.warn('Hydration error:', hydErr);
+          }
+
+          // Check local storage fallback
+          if (!image_url && typeof window !== 'undefined') {
+            try {
+              const localListings = JSON.parse(localStorage.getItem('kibabui_user_listings') || '[]');
+              const match = localListings.find((l: any) => l.id === item.id || l.event_id === item.id || l.service_id === item.id);
+              if (match?.images?.[0]) {
+                image_url = match.images[0];
+                images = match.images;
+              } else if (match?.event_details?.banner_url) {
+                image_url = match.event_details.banner_url;
+                images = [match.event_details.banner_url];
+              }
+            } catch {}
           }
 
           return {
@@ -402,6 +560,7 @@ export default function AdminDashboard() {
             status: item.status,
             price_display: price_display || 'Active Listing',
             image_url,
+            images,
             owner_name: ownerObj?.full_name || 'Comrade Student',
             owner_email: undefined,
             created_at: item.created_at,
@@ -1247,8 +1406,20 @@ export default function AdminDashboard() {
                             <Card key={item.id} className="border-slate-800 bg-slate-950 text-white rounded-[20px] overflow-hidden flex flex-col justify-between">
                               <div>
                                 {imageUrl ? (
-                                  <div className="aspect-video w-full bg-slate-900 relative overflow-hidden">
-                                    <img src={imageUrl} className="w-full h-full object-cover" alt={item.title} />
+                                  <div 
+                                    className="aspect-video w-full bg-slate-900 relative overflow-hidden cursor-pointer group"
+                                    onClick={() => setZoomImage(imageUrl)}
+                                    title="Click to view full image"
+                                  >
+                                    <img 
+                                      src={imageUrl} 
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                                      alt={item.title} 
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <Eye className="w-6 h-6 text-white drop-shadow" />
+                                    </div>
                                   </div>
                                 ) : (
                                   <div className="aspect-video w-full bg-slate-900 flex items-center justify-center text-slate-600">

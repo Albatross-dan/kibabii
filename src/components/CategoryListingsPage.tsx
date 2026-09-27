@@ -52,10 +52,10 @@ const fetchCategoryListings = async (category: any, sortBy = 'newest') => {
           service_images (image_url, display_order, is_primary)
         ),
         lost_found_items (
-          id, item_type, status
+          id, item_type, status, image_url
         ),
         events (
-          id, event_date, ticket_price
+          id, event_date, ticket_price, banner_url
         )
       `)
       .eq('listing_type', category.type)
@@ -404,22 +404,50 @@ export default function CategoryListingsPage({ category, onBack }: CategoryListi
               const isWish = hasItem(item.id);
               
               // Handle image resolution
-              let imgUrl = null;
-              if (item.products?.product_images?.length) {
-                imgUrl = item.products.product_images[0].image_url;
-              } else if (item.accommodations?.accommodation_images?.length) {
-                imgUrl = item.accommodations.accommodation_images[0].image_url;
-              } else if (item.services?.service_images?.length) {
-                const sImgs = [...item.services.service_images].sort((a: any, b: any) => {
+              const prod = Array.isArray(item.products) ? item.products[0] : (item.products || item.product_details);
+              const acc = Array.isArray(item.accommodations) ? item.accommodations[0] : (item.accommodations || item.accommodation_details);
+              const svc = Array.isArray(item.services) ? item.services[0] : (item.services || item.service_type_details || item.service_details);
+              const lf = Array.isArray(item.lost_found_items) ? item.lost_found_items[0] : (item.lost_found_items || item.lost_found_details);
+              const evt = Array.isArray(item.events) ? item.events[0] : (item.events || item.event_details);
+
+              let imgUrl: string | null = null;
+              if (prod?.product_images?.length) {
+                imgUrl = prod.product_images[0].image_url;
+              } else if (acc?.accommodation_images?.length) {
+                imgUrl = acc.accommodation_images[0].image_url;
+              } else if (svc?.service_images?.length) {
+                const sImgs = [...svc.service_images].sort((a: any, b: any) => {
                   if (a.is_primary && !b.is_primary) return -1;
                   if (!a.is_primary && b.is_primary) return 1;
                   return (a.display_order ?? 0) - (b.display_order ?? 0);
                 });
                 imgUrl = sImgs[0]?.image_url || null;
-              } else if (item.lost_found_items?.lost_found_images?.length) {
-                imgUrl = item.lost_found_items.lost_found_images[0].image_url;
-              } else if (item.events?.event_images?.length) {
-                imgUrl = item.events.event_images[0].image_url;
+              } else if (lf?.image_url) {
+                imgUrl = lf.image_url;
+              } else if (lf?.lost_found_images?.length) {
+                imgUrl = lf.lost_found_images[0].image_url;
+              } else if (evt?.banner_url) {
+                imgUrl = evt.banner_url;
+              } else if (evt?.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || item.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593') {
+                imgUrl = 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg';
+              } else if (evt?.event_images?.length) {
+                imgUrl = evt.event_images[0].image_url;
+              }
+
+              if (!imgUrl) {
+                if (Array.isArray(item.images) && item.images.length > 0) {
+                  imgUrl = item.images[0];
+                } else if (item.image_url) {
+                  imgUrl = item.image_url;
+                } else if (svc?.image_url) {
+                  imgUrl = svc.image_url;
+                } else if (evt?.image_url) {
+                  imgUrl = evt.image_url;
+                } else if (item.listing_type === 'service') {
+                  imgUrl = 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80';
+                } else if (item.listing_type === 'event') {
+                  imgUrl = 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
+                }
               }
 
               // Handle Price String
@@ -492,16 +520,18 @@ export default function CategoryListingsPage({ category, onBack }: CategoryListi
                   <div className="p-2 sm:p-2.5 flex-1 flex flex-col justify-between space-y-1">
                     <div>
                       {/* Price Section */}
-                      <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <span className="font-mono text-xs sm:text-sm font-black text-[#E53E3E] group-hover:text-red-600 transition-colors">
-                          {priceStr}
-                        </span>
-                        {origPrice && origPrice > 0 && (
-                          <span className="font-mono text-[9px] text-gray-400 line-through font-semibold">
-                            {formatPrice(origPrice)}
+                      {item.listing_type !== 'lost_found' && (
+                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                          <span className="font-mono text-xs sm:text-sm font-black text-[#E53E3E] group-hover:text-red-600 transition-colors">
+                            {priceStr}
                           </span>
-                        )}
-                      </div>
+                          {origPrice && origPrice > 0 && (
+                            <span className="font-mono text-[9px] text-gray-400 line-through font-semibold">
+                              {formatPrice(origPrice)}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Title */}
                       <h4 className="text-xs font-bold text-gray-800 line-clamp-2 mt-0.5 leading-snug group-hover:text-red-600 transition-colors">

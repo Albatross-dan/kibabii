@@ -73,8 +73,10 @@ export default function Signup() {
           username: formData.username,
           email: formData.email,
           phone: formData.phone,
+          whatsapp_number: formData.whatsapp_number || formData.phone,
           password: formData.password, // REAL TYPED PASSWORD
           campus: formData.campus,
+          campus_id: formData.campus_id,
         };
         await registerStudent(payload);
       } else {

@@ -23,10 +23,11 @@ export default function ProductCard({ product }: ProductCardProps) {
   const isWishlisted = hasItem(listingId) || hasItem(product.id);
   const [isAdding, setIsAdding] = React.useState(false);
 
-  const isProductListing = !(product as any).listing_type || (product as any).listing_type === 'product';
+  const isLostFound = (product as any).listing_type === 'lost_found' || (product as any).item_type === 'lost' || (product as any).item_type === 'found';
+  const isProductListing = !isLostFound && (!(product as any).listing_type || (product as any).listing_type === 'product');
   const primaryImg = (product as any).product_images?.find((img: any) => img.is_primary)?.image_url
     || (product as any).product_images?.[0]?.image_url;
-  const coverImage = primaryImg || product.images?.[0] || (product as any).image || (product as any).primary_image || `https://picsum.photos/seed/${product.id}/400/400`;
+  const coverImage = (product as any).image_url || primaryImg || product.images?.[0] || (product as any).image || (product as any).primary_image || (isLostFound ? 'https://images.unsplash.com/photo-1579208575657-c595a05383b7?w=600&q=80' : `https://picsum.photos/seed/${product.id}/400/400`);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -198,31 +199,33 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {/* Footer Info */}
-          <div className="flex items-center justify-between pt-1.5 border-t border-gray-50">
-            <div className="flex flex-col">
-               <div className="flex items-baseline gap-1">
-                 <span className="text-xs sm:text-sm font-black text-primary leading-tight">
-                    {formatPrice(product.price).replace('KES', 'KSh').trim()}
-                 </span>
-               </div>
-               {product.original_price && (
-                 <span className="text-[9px] text-gray-400 line-through font-bold">
-                    {formatPrice(product.original_price)}
-                 </span>
-               )}
+          {!isLostFound && (
+            <div className="flex items-center justify-between pt-1.5 border-t border-gray-50">
+              <div className="flex flex-col">
+                 <div className="flex items-baseline gap-1">
+                   <span className="text-xs sm:text-sm font-black text-primary leading-tight">
+                      {formatPrice(product.price).replace('KES', 'KSh').trim()}
+                   </span>
+                 </div>
+                 {product.original_price && (
+                   <span className="text-[9px] text-gray-400 line-through font-bold">
+                      {formatPrice(product.original_price)}
+                   </span>
+                 )}
+              </div>
+              
+              {isProductListing && (
+                <button 
+                  onClick={handleAddToCart}
+                  disabled={isAdding}
+                  aria-label="Add to cart"
+                  className="p-1.5 bg-secondary text-white rounded-md hover:bg-primary transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <ShoppingCart className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
-            
-            {isProductListing && (
-              <button 
-                onClick={handleAddToCart}
-                disabled={isAdding}
-                aria-label="Add to cart"
-                className="p-1.5 bg-secondary text-white rounded-md hover:bg-primary transition-all cursor-pointer disabled:opacity-50"
-              >
-                <ShoppingCart className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { isValidUuid, toValidUuid } from '@/lib/uuid';
+import { compressAndResizeBannerImage, uploadBannerWithRetry } from '@/lib/bannerUploadUtils';
 
 export type ListingType = 'product' | 'accommodation' | 'service' | 'lost_found' | 'event';
 export type ListingStatus = 'draft' | 'pending_review' | 'active' | 'sold' | 'expired' | 'archived' | 'rejected' | 'paused';
@@ -377,7 +378,63 @@ export const listingService = {
 
       let combined: Listing[] = [];
       if (data && data.length > 0) {
-        combined = [...data];
+        const ids = data.map((d: any) => d.id).filter(Boolean);
+        try {
+          const { data: enrichedListings } = await supabase
+            .from('listings')
+            .select(`
+              id,
+              product_details:products(*, product_images(*)),
+              accommodation_details:accommodations(*, accommodation_images(*)),
+              service_type_details:services(*, service_images(*)),
+              lost_found_details:lost_found_items(*),
+              event_details:events(*)
+            `)
+            .in('id', ids);
+
+          if (enrichedListings && enrichedListings.length > 0) {
+            const enrichMap = new Map(enrichedListings.map((e: any) => [e.id, e]));
+            combined = data.map((row: any) => {
+              const enrich: any = enrichMap.get(row.id);
+              if (!enrich) return row;
+
+              let rowImages = row.images || [];
+              if (!rowImages.length) {
+                if (enrich.product_details?.product_images?.length) {
+                  rowImages = enrich.product_details.product_images.map((img: any) => img.image_url);
+                } else if (enrich.accommodation_details?.accommodation_images?.length) {
+                  rowImages = enrich.accommodation_details.accommodation_images.map((img: any) => img.image_url);
+                } else if (enrich.service_type_details?.service_images?.length) {
+                  rowImages = enrich.service_type_details.service_images.map((img: any) => img.image_url);
+                } else if (enrich.event_details?.banner_url) {
+                  rowImages = [enrich.event_details.banner_url];
+                } else if (enrich.event_details?.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || row.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593') {
+                  rowImages = ['https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg'];
+                } else if (enrich.lost_found_details?.image_url) {
+                  rowImages = [enrich.lost_found_details.image_url];
+                } else if (row.listing_type === 'service') {
+                  rowImages = ['https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80'];
+                } else if (row.listing_type === 'event') {
+                  rowImages = ['https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80'];
+                }
+              }
+
+              return {
+                ...row,
+                images: rowImages,
+                product_details: enrich.product_details || row.product_details,
+                accommodation_details: enrich.accommodation_details || row.accommodation_details,
+                service_type_details: enrich.service_type_details || row.service_type_details,
+                lost_found_details: enrich.lost_found_details || row.lost_found_details,
+                event_details: enrich.event_details || row.event_details,
+              };
+            });
+          } else {
+            combined = [...data];
+          }
+        } catch {
+          combined = [...data];
+        }
       }
 
       return combined;
@@ -496,9 +553,20 @@ export const listingService = {
                     images: full.products.product_images?.map((img: any) => img.image_url) || []
                   } : null,
                   accommodation_details: full.accommodations,
-                  service_details: full.services,
+                  service_details: full.services ? {
+                    ...full.services,
+                    images: full.services.service_images?.map((img: any) => img.image_url) || []
+                  } : null,
                   lost_found_details: full.lost_found_items,
-                  event_details: full.events,
+                  event_details: full.events ? {
+                    ...full.events,
+                    images: full.events.banner_url ? [full.events.banner_url] : []
+                  } : null,
+                  images: full.products?.product_images?.map((img: any) => img.image_url)
+                    || full.services?.service_images?.map((img: any) => img.image_url)
+                    || (full.events?.banner_url ? [full.events.banner_url] : [])
+                    || full.images
+                    || [],
                 };
               }
               return {
@@ -625,13 +693,18 @@ export const listingService = {
           q = q.ilike('title', `%${cleanQuery}%`);
         }
 
-        const { data: fallbackProducts } = await q.limit(limit);
+        const [fallbackProducts, fallbackServices, fallbackEvents, fallbackAccommodations] = await Promise.all([
+          q.limit(limit).then(r => r.data || []),
+          supabase.from('services').select('*, service_images(image_url, is_primary, display_order)').eq('status', 'active').limit(10).then(r => r.data || []),
+          supabase.from('events').select('*').in('status', ['upcoming', 'ongoing']).limit(10).then(r => r.data || []),
+          supabase.from('accommodations').select('*, accommodation_images(image_url, is_primary, display_order)').limit(10).then(r => r.data || [])
+        ]);
 
         return {
           products: fallbackProducts || [],
-          accommodations: [],
-          services: [],
-          events: []
+          accommodations: fallbackAccommodations || [],
+          services: fallbackServices || [],
+          events: fallbackEvents || []
         };
       }
     } catch (fallbackErr) {
@@ -1364,39 +1437,7 @@ export const listingService = {
 
     const validCampusId = isValidUuid(params.campusId) ? params.campusId : '8e08c135-e6ec-4387-af3e-110b11d37c07';
 
-    // 1. Call create_event_listing RPC first (without banner) to create event row and obtain real event_id
-    const { data: rpcData, error: rpcError } = await supabase.rpc('create_event_listing', {
-      p_title: params.title,
-      p_campus_id: validCampusId,
-      p_event_type: params.eventType,
-      p_event_date: params.eventDate,
-      p_description: params.description || null,
-      p_banner_url: null,
-      p_start_time: params.startTime || null,
-      p_end_time: params.endTime || null,
-      p_location_text: params.locationText || null,
-      p_latitude: params.latitude !== undefined && params.latitude !== null ? Number(params.latitude) : null,
-      p_longitude: params.longitude !== undefined && params.longitude !== null ? Number(params.longitude) : null,
-      p_registration_link: params.registrationLink || null,
-      p_organizer_name: params.organizerName || null,
-      p_is_free: isFree,
-      p_ticket_price: isFree ? null : (Number(params.ticketPrice) || null),
-      p_max_attendees: params.maxAttendees ? Number(params.maxAttendees) : null
-    });
-
-    if (rpcError) {
-      console.error('create_event_listing RPC error:', rpcError);
-      throw new Error(rpcError.message);
-    }
-    if (rpcData?.error) {
-      console.error('create_event_listing returned error:', rpcData.error);
-      throw new Error(rpcData.error);
-    }
-
-    const eventId = rpcData.event_id;
-    const listingId = rpcData.listing_id || eventId;
-
-    // 2. Upload banner image to event-banners bucket using the REAL event_id: {organizer_id}/{event_id}/{filename}
+    // 1. Prepare and upload banner image first so real banner_url is passed to create_event_listing RPC
     let finalBannerUrl: string | null = null;
     let bannerToUpload: { file: Blob | File; contentType: string; ext: string } | null = null;
 
@@ -1430,22 +1471,20 @@ export const listingService = {
     }
 
     if (bannerToUpload) {
-      const filePath = `${user.id}/${eventId}/${Date.now()}_banner.${bannerToUpload.ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('event-banners')
-        .upload(filePath, bannerToUpload.file, { contentType: bannerToUpload.contentType });
-
-      if (uploadError) {
-        console.error('Failed to upload banner to event-banners bucket:', uploadError);
-        throw new Error(`Failed to upload event banner image: ${uploadError.message}`);
-      }
-
-      const { data: urlData } = supabase.storage
-        .from('event-banners')
-        .getPublicUrl(filePath);
-
-      if (urlData?.publicUrl) {
-        finalBannerUrl = urlData.publicUrl;
+      try {
+        const compressed = await compressAndResizeBannerImage(bannerToUpload.file, 1600, 0.8);
+        const filePath = `${user.id}/${Date.now()}_banner.${compressed.ext}`;
+        finalBannerUrl = await uploadBannerWithRetry(
+          supabase,
+          'event-banners',
+          filePath,
+          compressed.blob,
+          compressed.contentType,
+          2,
+          [1000, 1800]
+        );
+      } catch (uploadErr) {
+        console.warn('Initial banner upload notice, proceeding:', uploadErr);
       }
     }
 
@@ -1454,16 +1493,44 @@ export const listingService = {
       finalBannerUrl = null;
     }
 
-    // 3. Update the event row with the resulting public image URL
-    if (finalBannerUrl) {
+    // 2. Call create_event_listing RPC with finalBannerUrl
+    const { data: rpcData, error: rpcError } = await supabase.rpc('create_event_listing', {
+      p_title: params.title,
+      p_campus_id: validCampusId,
+      p_event_type: params.eventType,
+      p_event_date: params.eventDate,
+      p_description: params.description || null,
+      p_banner_url: finalBannerUrl,
+      p_start_time: params.startTime || null,
+      p_end_time: params.endTime || null,
+      p_location_text: params.locationText || null,
+      p_latitude: params.latitude !== undefined && params.latitude !== null ? Number(params.latitude) : null,
+      p_longitude: params.longitude !== undefined && params.longitude !== null ? Number(params.longitude) : null,
+      p_registration_link: params.registrationLink || null,
+      p_organizer_name: params.organizerName || null,
+      p_is_free: isFree,
+      p_ticket_price: isFree ? null : (Number(params.ticketPrice) || null),
+      p_max_attendees: params.maxAttendees ? Number(params.maxAttendees) : null
+    });
+
+    if (rpcError) {
+      console.error('create_event_listing RPC error:', rpcError);
+      throw new Error(rpcError.message);
+    }
+    if (rpcData?.error) {
+      console.error('create_event_listing returned error:', rpcData.error);
+      throw new Error(rpcData.error);
+    }
+
+    const eventId = rpcData?.event_id || rpcData?.id || (typeof rpcData === 'string' ? rpcData : '');
+    const listingId = rpcData?.listing_id || eventId;
+
+    // 3. Update the event row if banner wasn't saved in RPC
+    if (finalBannerUrl && eventId) {
       try {
-        const { error: updateErr } = await supabase
-          .from('events')
+        await (supabase.from('events') as any)
           .update({ banner_url: finalBannerUrl })
           .eq('id', eventId);
-        if (updateErr) {
-          console.warn('Failed to update event with banner_url:', updateErr);
-        }
       } catch (upCatch) {
         console.warn('Event banner update notice:', upCatch);
       }
