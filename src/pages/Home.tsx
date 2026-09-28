@@ -177,6 +177,7 @@ export default function Home() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
+  const isSwipingRef = useRef(false);
 
   // Real DB States
   const [loading, setLoading] = useState(true);
@@ -438,6 +439,7 @@ export default function Home() {
   // Touch Swipe Handlers for Hero Carousel
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.touches[0].clientX);
+    isSwipingRef.current = false;
     setIsPaused(true);
   };
 
@@ -445,6 +447,12 @@ export default function Home() {
     if (touchStart === null) return;
     const touchEnd = e.changedTouches[0].clientX;
     const diff = touchStart - touchEnd;
+    if (Math.abs(diff) > 20) {
+      isSwipingRef.current = true;
+      setTimeout(() => {
+        isSwipingRef.current = false;
+      }, 250);
+    }
     if (diff > 50) {
       // Swipe Left -> Next
       setActiveSlide((prev) => (prev + 1) % (heroListings.length || 1));
@@ -1100,7 +1108,7 @@ export default function Home() {
     }
   };
 
-  // Dynamic Carousel slide renderer
+  // Dynamic Carousel slide renderer - only shows product name and price; opens details on tap
   const renderCarouselSlide = (slide: any) => {
     const isAcc = slide.listing_type === 'accommodation';
     const acc = Array.isArray(slide.accommodations) ? slide.accommodations[0] : slide.accommodations;
@@ -1110,24 +1118,23 @@ export default function Home() {
       ? (acc?.price_per_month ? `KSh ${Number(acc.price_per_month).toLocaleString('en-KE')}/mo` : 'Price not set')
       : (prod?.price ? `KSh ${Number(prod.price).toLocaleString('en-KE')}` : 'Price not set');
 
-    const typeLabel = isAcc ? 'ACCOMMODATION' : 'PRODUCT';
-    const subtypeLabel = isAcc
-      ? ({ bedsitter: 'Bedsitter', hostel: 'Hostel', apartment: 'Apartment', shared_room: 'Shared Room' }[acc?.accommodation_type as string] ?? 'Room')
-      : 'Item';
-
     const imgUrl = getCarouselImage(slide);
 
     return (
       <div 
         key={slide.id} 
-        className="w-full h-full shrink-0 relative overflow-hidden flex-none rounded-[16px]"
+        onClick={() => {
+          if (isSwipingRef.current) return;
+          navigate(`/listing/${slide.id}`);
+        }}
+        className="w-full h-full shrink-0 relative overflow-hidden flex-none rounded-[16px] cursor-pointer group"
       >
         {/* Background image or gradient */}
         {imgUrl ? (
           <img 
             src={imgUrl} 
             alt={slide.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             referrerPolicy="no-referrer"
           />
         ) : (
@@ -1136,53 +1143,16 @@ export default function Home() {
           </div>
         )}
 
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+        {/* Minimal gradient at bottom so image stays fully visible */}
+        <div className="absolute inset-x-0 bottom-0 h-20 sm:h-24 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
 
-        {/* Top Left Badges */}
-        <div className="absolute top-4 left-4 flex gap-2">
-          <span className="bg-[#E53E3E] text-white text-[10px] font-black tracking-wider uppercase px-2.5 py-1 rounded-full shadow-sm">
-            {typeLabel}
-          </span>
-          <span className="bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-            {subtypeLabel}
-          </span>
-        </div>
-
-        {/* Bottom Content */}
-        <div className="absolute bottom-6 left-6 right-6 text-left space-y-2">
-          <h3 className="text-xl md:text-2xl font-black text-white leading-tight line-clamp-1">
+        {/* Bottom Content: Only Product Name and Price */}
+        <div className="absolute bottom-3 left-4 right-20 sm:bottom-4 sm:left-6 sm:right-28 text-left pointer-events-none space-y-0.5">
+          <h3 className="text-sm sm:text-base md:text-xl font-black text-white leading-tight line-clamp-1 drop-shadow-md group-hover:text-amber-300 transition-colors">
             {slide.title}
           </h3>
-          {slide.description && (
-            <p className="text-white/80 text-xs md:text-sm line-clamp-2 max-w-xl">
-              {slide.description}
-            </p>
-          )}
-          <div className="font-mono font-black text-[#F6AD55] text-lg md:text-xl">
+          <div className="font-mono font-black text-[#F6AD55] text-xs sm:text-sm md:text-base drop-shadow-md">
             {price}
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <Button
-              onClick={() => navigate(`/listing/${slide.id}`)}
-              className="bg-[#E53E3E] hover:bg-[#C53030] text-white font-extrabold text-xs h-9 px-5 rounded-full shadow-md cursor-pointer transition-all"
-            >
-              View Details
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (isAcc) {
-                  handleCategoryTapByIdOrType('accommodation');
-                } else {
-                  navigate('/products');
-                }
-              }}
-              className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs h-9 px-5 rounded-full border border-white/20"
-            >
-              Explore
-            </Button>
           </div>
         </div>
       </div>
@@ -1379,12 +1349,17 @@ export default function Home() {
                 </div>
 
                 {/* Dot Indicators */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                <div className="absolute bottom-3 right-4 sm:bottom-4 sm:right-6 flex gap-1.5 z-10">
                   {heroListings.map((_, i) => (
                     <button 
                       key={i}
-                      onClick={() => setActiveSlide(i)}
-                      className={`h-2 rounded-full transition-all duration-300 ${activeSlide === i ? 'w-5 bg-[#E53E3E]' : 'w-2 bg-white/40 hover:bg-white/60'}`}
+                      type="button"
+                      aria-label={`Slide ${i + 1}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveSlide(i);
+                      }}
+                      className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${activeSlide === i ? 'w-5 bg-[#E53E3E]' : 'w-2 bg-white/50 hover:bg-white/80'}`}
                     />
                   ))}
                 </div>
