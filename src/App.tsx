@@ -126,7 +126,7 @@ export default function App() {
           <Route path="/auth/signup" element={<Signup />} />
           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
           <Route path="/auth/reset-password" element={<ResetPassword />} />
-          <Route path="/auth/verify-email" element={<VerifyEmail />} />
+          <Route path="/auth/verify-email" element={<Navigate to="/auth/login" replace />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

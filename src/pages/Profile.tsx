@@ -63,6 +63,7 @@ import SupportPanel from '@/components/profile/SupportPanel';
 import AdminPanel from '@/components/profile/AdminPanel';
 import DashboardSidebar, { AccountMenuButton, getDashboardSections } from '@/components/profile/DashboardSidebar';
 import StoreCreationModal from '@/components/store/StoreCreationModal';
+import AccountDetailsDropdowns from '@/components/profile/AccountDetailsDropdowns';
 
 // Traditional imports or utilities inside
 import AccountBadge from '@/components/products/AccountBadge';
@@ -265,7 +266,12 @@ export default function Profile() {
 
   // Collapsible section states (Record mapping section id to true if collapsed)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    'store-management': false,
+    'account-stats': true,
+    'my-marketplace': true,
+    'followed-stores': true,
+    'verification-badges': true,
+    'seller-center': true,
+    'store-management': true,
     'accommodation-management': true,
     'services-management': true,
     'events-management': true,
@@ -548,6 +554,19 @@ export default function Profile() {
                     showAll={true}
                   />
                 </div>
+              </div>
+
+              {/* Account Details & Credentials Dropdowns */}
+              <div className="px-6 pb-6">
+                <AccountDetailsDropdowns 
+                  profile={profile}
+                  realAuthUser={realAuthUser}
+                  userStore={userStore}
+                  realReviews={realReviews}
+                  realMetrics={realMetrics}
+                  isStore={isStore}
+                  wishlistCount={wishlistItems.length}
+                />
               </div>
 
               {/* Become a Shop Owner Banner for non-store accounts */}

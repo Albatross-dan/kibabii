@@ -56,6 +56,7 @@ export default function SettingsPanel({
 
   // Input states synchronized from user profile
   const [fullName, setFullName] = useState(profile.full_name || '');
+  const [username, setUsername] = useState(profile.username || '');
   const [phone, setPhone] = useState(profile.phone || '');
   const [whatsappNumber, setWhatsappNumber] = useState(profile.whatsapp_number || profile.phone || '');
   const [campus, setCampus] = useState(profile.campus || 'Kibabii University');
@@ -65,6 +66,16 @@ export default function SettingsPanel({
   const [pass, setPass] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  React.useEffect(() => {
+    setFullName(profile.full_name || '');
+    setUsername(profile.username || '');
+    setPhone(profile.phone || '');
+    setWhatsappNumber(profile.whatsapp_number || profile.phone || '');
+    setCampus(profile.campus || 'Kibabii University');
+    setEmail(profile.email || '');
+    setAvatar(profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=KibuUser');
+  }, [profile]);
 
   // Notification states
   const [notifWhatsapp, setNotifWhatsapp] = useState(true);
@@ -197,20 +208,55 @@ export default function SettingsPanel({
       normalizedWa = normResult.formatted;
     }
 
+    const cleanedUsername = username.trim().replace(/^@/, '').toLowerCase();
+    if (cleanedUsername.length < 3) {
+      toast.error('Username must be at least 3 characters long.');
+      setIsSaving(false);
+      return;
+    }
+    if (!/^[a-z0-9_]+$/.test(cleanedUsername)) {
+      toast.error('Username can only contain letters, numbers, and underscores.');
+      setIsSaving(false);
+      return;
+    }
+
     try {
       // Sync to Supabase profiles table for authenticated user
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
+      const currentUserId = session?.user?.id || profile.id;
+
+      // Check username collision if username was modified
+      if (cleanedUsername !== profile.username?.toLowerCase() && currentUserId) {
+        try {
+          const { data: existingUser } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('username', cleanedUsername)
+            .neq('id', currentUserId)
+            .maybeSingle();
+
+          if (existingUser) {
+            toast.error(`The username @${cleanedUsername} is already taken. Please choose another.`);
+            setIsSaving(false);
+            return;
+          }
+        } catch (checkErr) {
+          console.warn('Username uniqueness check warning:', checkErr);
+        }
+      }
+
+      if (currentUserId) {
         const { error } = await supabase
           .from('profiles')
           .update({
             full_name: fullName,
+            username: cleanedUsername,
             phone: phone,
             whatsapp_number: normalizedWa || null,
             campus: campus,
             avatar_url: avatar
           })
-          .eq('id', session.user.id);
+          .eq('id', currentUserId);
 
         if (error) {
           console.warn('Supabase profile update warning:', error);
@@ -220,6 +266,7 @@ export default function SettingsPanel({
       const updated = {
         ...profile,
         full_name: fullName,
+        username: cleanedUsername,
         phone: phone,
         whatsapp_number: normalizedWa || undefined,
         campus: campus,
@@ -227,6 +274,7 @@ export default function SettingsPanel({
         avatar_url: avatar
       };
       setProfile(updated);
+      setUsername(cleanedUsername);
       setWhatsappNumber(normalizedWa);
       setWhatsapp(normalizedWa);
       toast.success('👤 Settings saved! Profile updated across active system.');
@@ -364,13 +412,21 @@ export default function SettingsPanel({
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="stUsername" className="font-bold text-slate-705">Account Username</Label>
-                    <Input 
-                      id="stUsername"
-                      disabled 
-                      value={`@${profile.username}`}
-                      className="h-10 text-xs bg-slate-50 text-slate-400 cursor-not-allowed border-dashed rounded-xl"
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="stUsername" className="font-bold text-slate-700">Account Username</Label>
+                      <span className="text-[10px] text-muted-foreground font-semibold">Change handle</span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs select-none">@</span>
+                      <Input 
+                        id="stUsername"
+                        required 
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value.replace(/^@/, ''))}
+                        className="h-10 text-xs bg-white rounded-xl pl-7 font-mono font-medium"
+                        placeholder="e.g. daniel_kamau"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-1">

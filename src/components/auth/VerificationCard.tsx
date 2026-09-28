@@ -133,7 +133,7 @@ export function VerificationCard({
         <CardDescription className="text-xs">
           {type === 'student' 
             ? 'Add official credentials to verify as a Kibabii student and earn student-exclusive highlights.' 
-            : 'Validate store ownership, supply details and photos, and reach campus customers officially.'
+            : 'Validate business ownership, supply details and photos, and reach campus customers officially.'
           }
         </CardDescription>
       </CardHeader>

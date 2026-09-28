@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { isValidUuid, toValidUuid } from '@/lib/uuid';
 import { toast } from 'sonner';
+import { compressAndResizeBannerImage, uploadBannerWithRetry } from '@/lib/bannerUploadUtils';
 
 export interface UserProfile {
   id: string;
@@ -195,6 +196,64 @@ const saveAccountsToLocal = (accounts: UserProfile[]) => {
 
 let authInitialized = false;
 
+/**
+ * Auto-generates a unique username from full_name (e.g. slugify + random numeric suffix on collision,
+ * respecting the existing UNIQUE constraint on profiles.username).
+ */
+export async function generateUniqueUsername(fullName: string, email?: string): Promise<string> {
+  const cleanSlug = (input: string) => {
+    return input
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  };
+
+  const rawSlug = cleanSlug(fullName);
+  const emailPrefix = email ? cleanSlug(email.split('@')[0]) : '';
+  const base = (rawSlug.length >= 2 ? rawSlug : emailPrefix || 'comrade').slice(0, 18);
+
+  // 1. Try clean base slug first
+  try {
+    const { data: existing, error } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('username', base)
+      .maybeSingle();
+
+    if (!error && !existing) {
+      return base;
+    }
+  } catch (err) {
+    console.warn('Username uniqueness check warning:', err);
+  }
+
+  // 2. Collision detected! Append random numeric suffix
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const randomSuffix = Math.floor(100 + Math.random() * 9000);
+    const candidate = `${base.slice(0, 14)}_${randomSuffix}`;
+
+    try {
+      const { data: collision } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', candidate)
+        .maybeSingle();
+
+      if (!collision) {
+        return candidate;
+      }
+    } catch {
+      return candidate;
+    }
+  }
+
+  // Fallback: timestamp suffix
+  return `${base.slice(0, 12)}_${Date.now().toString().slice(-4)}`;
+}
+
 export const useAuthStore = create<AuthStore>((set, get) => {
   const initialAccounts = loadAccounts();
   
@@ -382,9 +441,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       const formEmail = (data.email || '').trim().toLowerCase();
       const formPassword = (data as any).password || '';
       const fullName = (data.full_name || '').trim();
-      const username = (data.username || (formEmail ? formEmail.split('@')[0] : 'comrade')).trim();
+      const autoUsername = await generateUniqueUsername(fullName, formEmail);
+      const username = (data.username?.trim() || autoUsername).trim();
       const whatsappNumber = (data.whatsapp_number || (data as any).phone || '').trim();
-      let campusId = (data.campus_id || (data as any).campusId || '').trim();
+      let campusId = (data.campus_id || (data as any).campusId || '8e08c135-e6ec-4387-af3e-110b11d37c07').trim();
 
       if (!formEmail) {
         throw new Error('Email address is required.');
@@ -416,26 +476,73 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       }
 
       // Step 1: Real Supabase signUp with metadata including campus_id and whatsapp_number
-      const { data: signUpData, error } = await supabase.auth.signUp({
-        email: formEmail,
-        password: formPassword,
-        options: {
-          data: {
-            full_name: fullName,
-            username: username,
-            account_type: 'student',
-            campus_id: campusId,
-            whatsapp_number: whatsappNumber
-          }
-        }
-      });
+      let authUser: any = null;
 
-      if (error) {
-        console.error('Supabase student signUp error:', error);
-        throw error;
+      // Check if current active session matches
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser && currentUser.email?.toLowerCase() === formEmail) {
+          authUser = currentUser;
+        }
+      } catch {
+        // Continue to sign up
       }
 
-      const authUser = signUpData?.user;
+      if (!authUser) {
+        const { data: signUpData, error } = await supabase.auth.signUp({
+          email: formEmail,
+          password: formPassword,
+          options: {
+            data: {
+              full_name: fullName,
+              username: username,
+              account_type: 'student',
+              campus_id: campusId,
+              whatsapp_number: whatsappNumber
+            }
+          }
+        });
+
+        if (error) {
+          const isAlreadyRegistered = 
+            error.message?.toLowerCase().includes('user already registered') ||
+            error.message?.toLowerCase().includes('already registered') ||
+            (error as any).code === 'user_already_exists';
+
+          if (isAlreadyRegistered) {
+            // Attempt to sign in with provided password
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+              email: formEmail,
+              password: formPassword
+            });
+
+            if (signInError) {
+              if (signInError.message?.toLowerCase().includes('invalid login credentials')) {
+                throw new Error('An account with this email already exists. Please enter your existing account password, or sign in.');
+              }
+              throw new Error(`An account with this email already exists (${signInError.message}). Please sign in.`);
+            }
+
+            authUser = signInData.user;
+          } else {
+            console.error('Supabase student signUp error:', error);
+            throw error;
+          }
+        } else {
+          authUser = signUpData?.user;
+          if (authUser && authUser.identities && authUser.identities.length === 0) {
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+              email: formEmail,
+              password: formPassword
+            });
+            if (signInError) {
+              throw new Error('An account with this email already exists. Please sign in or use your existing account password.');
+            }
+            authUser = signInData.user;
+          }
+        }
+      }
+
       if (!authUser) {
         throw new Error('Registration could not be completed. Please try again.');
       }
@@ -455,7 +562,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         is_store: false,
         avatar_url: data.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authUser.id}`,
         campus: data.campus || 'Kibabii University',
-        email_verified: Boolean(authUser.email_confirmed_at),
+        email_verified: true,
         student_verification_status: 'unverified',
         store_verification_status: 'unverified',
         is_top_seller: false,
@@ -467,11 +574,12 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         join_date: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
       };
 
-      // Step 2: Persist campus_id and whatsapp_number directly to the profiles table
+      // Step 2: Persist username, campus_id and whatsapp_number directly to the profiles table
       try {
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
+            username: username,
             campus_id: campusId,
             whatsapp_number: whatsappNumber,
             phone: whatsappNumber
@@ -506,15 +614,16 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     },
     
     registerStore: async (data) => {
+      const slugify = (text: string) => text.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/--+/g, '-');
       const formEmail = (data.email || '').trim().toLowerCase();
       const formPassword = (data as any).password || '';
       const fullName = (data.full_name || '').trim();
       const storeName = (data.store_name || fullName || 'Campus Store').trim();
-      const slugify = (text: string) => text.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/--+/g, '-');
-      const username = (data.username || slugify(storeName) || (formEmail ? formEmail.split('@')[0] : 'store')).trim();
+      const autoStoreUsername = await generateUniqueUsername(fullName || storeName, formEmail);
+      const username = (data.username?.trim() || autoStoreUsername).trim();
 
       if (!formEmail) {
-        throw new Error('Business email is required.');
+        throw new Error('Email is required.');
       }
       if (!formPassword) {
         throw new Error('Password is required.');
@@ -524,59 +633,186 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       }
 
       // Step 1: Real Supabase signUp with the real password typed by the user
-      const { data: signUpData, error } = await supabase.auth.signUp({
-        email: formEmail,
-        password: formPassword,
-        options: {
-          data: {
-            full_name: fullName,
-            username: username,
-            account_type: 'store'
-          }
-        }
-      });
+      let authUser: any = null;
 
-      if (error) {
-        // Show error.message, stop here, do NOT show a success screen or invent fake accounts
-        console.error('Supabase store signUp error:', error);
-        throw error;
+      // Check if current active session matches the form email
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser && currentUser.email?.toLowerCase() === formEmail) {
+          authUser = currentUser;
+        }
+      } catch {
+        // Continue to sign up
       }
 
-      const authUser = signUpData?.user;
+      if (!authUser) {
+        const { data: signUpData, error } = await supabase.auth.signUp({
+          email: formEmail,
+          password: formPassword,
+          options: {
+            data: {
+              full_name: fullName,
+              username: username,
+              account_type: 'store'
+            }
+          }
+        });
+
+        if (error) {
+          const isAlreadyRegistered = 
+            error.message?.toLowerCase().includes('user already registered') ||
+            error.message?.toLowerCase().includes('already registered') ||
+            (error as any).code === 'user_already_exists';
+
+          if (isAlreadyRegistered) {
+            // Attempt to sign in with the provided password
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+              email: formEmail,
+              password: formPassword
+            });
+
+            if (signInError) {
+              console.warn('Sign in for existing store owner notice:', signInError);
+              if (signInError.message?.toLowerCase().includes('invalid login credentials')) {
+                throw new Error('An account with this email already exists. Please enter your existing password to set up your business, or sign in.');
+              }
+              throw new Error(`An account with this email already exists (${signInError.message}). Please sign in.`);
+            }
+
+            authUser = signInData.user;
+          } else {
+            console.error('Supabase store signUp error:', error);
+            throw error;
+          }
+        } else {
+          authUser = signUpData?.user;
+          if (authUser && authUser.identities && authUser.identities.length === 0) {
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+              email: formEmail,
+              password: formPassword
+            });
+            if (signInError) {
+              throw new Error('An account with this email already exists. Please enter your existing password to connect your business, or sign in.');
+            }
+            authUser = signInData.user;
+          }
+        }
+      }
+
       if (!authUser) {
         throw new Error('Store registration could not be completed. Please try again.');
       }
 
-      // Step 2: Real Supabase stores table insertion using the real authUser.id
-      const slug = `${slugify(storeName)}-${Math.random().toString(36).slice(2, 8)}`;
+      // Step 2: Banner image upload to Supabase Storage if file is provided
+      let bannerImageUrl: string | null = (typeof data.store_banner_image === 'string' && data.store_banner_image.startsWith('http'))
+        ? data.store_banner_image
+        : null;
+
+      const bannerCandidate = (data as any).banner_file || (data as any).bannerFile || (typeof data.store_banner_image !== 'string' ? data.store_banner_image : null);
+
+      if (bannerCandidate) {
+        try {
+          const compressed = await compressAndResizeBannerImage(bannerCandidate, 1600, 0.8);
+          const filePath = `${authUser.id}/${Date.now()}_banner.${compressed.ext}`;
+          let uploadedUrl: string | null = null;
+
+          try {
+            uploadedUrl = await uploadBannerWithRetry(
+              supabase,
+              'event-banners',
+              filePath,
+              compressed.blob,
+              compressed.contentType,
+              2,
+              [1000, 1800]
+            );
+          } catch (firstErr) {
+            console.warn('event-banners storage upload notice, trying listings fallback:', firstErr);
+            try {
+              uploadedUrl = await uploadBannerWithRetry(
+                supabase,
+                'listings',
+                filePath,
+                compressed.blob,
+                compressed.contentType,
+                1,
+                [1000]
+              );
+            } catch (secondErr) {
+              console.warn('listings storage fallback notice:', secondErr);
+            }
+          }
+
+          if (uploadedUrl && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
+            bannerImageUrl = uploadedUrl;
+          }
+        } catch (uploadErr) {
+          console.warn('Store banner upload notice:', uploadErr);
+        }
+      }
+
+      // Step 3: Check if the user already has an existing store or insert new store
+      const { data: existingStore } = await supabase
+        .from('stores')
+        .select('*')
+        .eq('owner_id', authUser.id)
+        .maybeSingle();
+
+      let realStoreRow: any = existingStore;
       const businessCategory = data.business_category || null;
       const storeLocation = data.store_location || null;
       const storeDescription = data.store_description || null;
-      const bannerImageUrl = data.store_banner_image || null;
 
-      const { data: store, error: storeError } = await supabase
-        .from('stores')
-        .insert({
-          owner_id: authUser.id,
-          name: storeName,
-          store_name: storeName,
-          slug: slug,
-          category: businessCategory,
-          location: storeLocation,
-          description: storeDescription,
-          banner_url: bannerImageUrl,
-        })
-        .select()
-        .single();
+      if (existingStore) {
+        // Update existing store details
+        const updateFields: any = {
+          updated_at: new Date().toISOString()
+        };
+        if (storeName) {
+          updateFields.name = storeName;
+          updateFields.store_name = storeName;
+        }
+        if (businessCategory) updateFields.category = businessCategory;
+        if (storeLocation) updateFields.location = storeLocation;
+        if (storeDescription) updateFields.description = storeDescription;
+        if (bannerImageUrl) updateFields.banner_url = bannerImageUrl;
 
-      if (storeError) {
-        console.error('Store creation failed:', storeError);
-        throw new Error(storeError.message || 'Store creation failed.');
+        const { data: updatedStore, error: updateError } = await supabase
+          .from('stores')
+          .update(updateFields)
+          .eq('id', existingStore.id)
+          .select()
+          .single();
+
+        if (!updateError && updatedStore) {
+          realStoreRow = updatedStore;
+        }
+      } else {
+        // Real Supabase stores table insertion using the real authUser.id
+        const slug = `${slugify(storeName)}-${Math.random().toString(36).slice(2, 8)}`;
+        const { data: store, error: storeError } = await supabase
+          .from('stores')
+          .insert({
+            owner_id: authUser.id,
+            name: storeName,
+            store_name: storeName,
+            slug: slug,
+            category: businessCategory,
+            location: storeLocation,
+            description: storeDescription,
+            banner_url: bannerImageUrl,
+          })
+          .select()
+          .single();
+
+        if (storeError) {
+          console.error('Store creation failed:', storeError);
+          throw new Error(storeError.message || 'Store creation failed.');
+        }
+        realStoreRow = store;
       }
 
-      const realStoreRow = store;
-
-      // Step 3: Upsert profile in Supabase profiles table
+      // Step 4: Upsert profile in Supabase profiles table
       try {
         await supabase.from('profiles').upsert({
           id: authUser.id,
@@ -604,14 +840,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         can_sell: true,
         is_store: true,
         avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(storeName)}`,
-        email_verified: Boolean(authUser.email_confirmed_at),
+        email_verified: true,
         student_verification_status: 'unverified',
         store_verification_status: realStoreRow?.is_verified ? 'approved' : 'unverified',
         store_name: realStoreRow?.name || storeName,
         business_category: realStoreRow?.category || data.business_category || 'General Store',
         store_location: realStoreRow?.location || data.store_location || 'Campus',
         store_description: realStoreRow?.description || data.store_description || '',
-        store_banner_image: data.store_banner_image || 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=800&q=80',
+        store_banner_image: bannerImageUrl || data.store_banner_image || 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=800&q=80',
         followers: 0,
         is_top_seller: false,
         seller_rating: 0,
@@ -710,7 +946,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         campus: profileFromDb?.campus || 'Kibabii University',
         hostel_area: profileFromDb?.hostel_area || '',
         student_reg_number: profileFromDb?.student_reg_number || '',
-        email_verified: Boolean(supabaseUser.email_confirmed_at),
+        email_verified: true,
         student_verification_status: profileFromDb?.student_verification_status || 'unverified',
         store_verification_status: profileFromDb?.store_verification_status || (profileFromDb?.is_store ? 'approved' : 'unverified'),
         store_name: profileFromDb?.store_name,

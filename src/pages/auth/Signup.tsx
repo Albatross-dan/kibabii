@@ -4,26 +4,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   Store, 
   ArrowLeft, 
-  CheckCircle2, 
-  GraduationCap, 
   ShoppingBag, 
   PlusCircle, 
   Heart, 
-  Mail, 
-  Loader2, 
-  Sparkles, 
-  RefreshCw, 
-  Edit3, 
-  ArrowRight,
-  Clipboard,
-  Check
+  ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
 import { useAuthStore } from '@/store/authStore';
-import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 // Reusable custom components
@@ -31,31 +18,20 @@ import { AccountTypeCard } from '@/components/auth/AccountTypeCard';
 import { RegistrationForm } from '@/components/auth/RegistrationForm';
 import { WelcomeActionCard } from '@/components/auth/WelcomeActionCard';
 
-type SignupStep = 'welcome' | 'registration' | 'email_verification' | 'first_login_experience';
+type SignupStep = 'welcome' | 'registration' | 'first_login_experience';
 
 export default function Signup() {
   const navigate = useNavigate();
   const { 
     registerStudent, 
     registerStore, 
-    verifyOtpCode, 
     profile, 
-    setProfile, 
-    sentOtp, 
-    setSentOtp,
-    user,
-    setUser
+    user
   } = useAuthStore();
   
   const [step, setStep] = useState<SignupStep>('welcome');
   const [selectedType, setSelectedType] = useState<'student' | 'store'>('student');
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Email verification simulator state
-  const [otpCode, setOtpCode] = useState('');
-  const [isChangingEmail, setIsChangingEmail] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
-  const [verificationSuccess, setVerificationSuccess] = useState(false);
 
   // 1. Handle Account Type selection
   const handleSelectAccountType = (type: 'student' | 'store') => {
@@ -75,8 +51,8 @@ export default function Signup() {
           phone: formData.phone,
           whatsapp_number: formData.whatsapp_number || formData.phone,
           password: formData.password, // REAL TYPED PASSWORD
-          campus: formData.campus,
-          campus_id: formData.campus_id,
+          campus: formData.campus || 'Kibabii University',
+          campus_id: formData.campus_id || '8e08c135-e6ec-4387-af3e-110b11d37c07',
         };
         await registerStudent(payload);
       } else {
@@ -89,76 +65,33 @@ export default function Signup() {
           business_category: formData.business_category,
           store_location: formData.store_location,
           store_description: formData.store_description,
-          store_banner_image: formData.store_banner_image
+          store_banner_image: formData.store_banner_image,
+          banner_file: formData.banner_file
         };
         await registerStore(payload);
       }
       
-      toast.success('Account created! Please check your email to confirm your account.');
-      setStep('email_verification');
+      toast.success(selectedType === 'student' ? 'Account created! Welcome to Kibabii Marketplace.' : 'Business account created! Welcome to Kibabii Marketplace.');
+      setStep('first_login_experience');
     } catch (err: any) {
-      // STOP HERE! Do NOT advance to success screen or fake profile
       console.error('Registration error:', err);
-      toast.error(err.message || 'Registration failed. Please check your credentials and try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 3. Resend real confirmation email
-  const handleResendConfirmationEmail = async () => {
-    const targetEmail = profile?.email || user?.email;
-    if (!targetEmail) {
-      toast.error('No email address found to resend confirmation to.');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: targetEmail
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      toast.success(`Confirmation email resent to ${targetEmail}!`);
-    } catch (err: any) {
-      console.error('Resend confirmation email error:', err);
-      toast.error(err.message || 'Failed to resend confirmation email.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Check if email was already confirmed
-  const handleCheckEmailConfirmed = async () => {
-    setIsLoading(true);
-    try {
-      const { data: { user: refreshedUser }, error } = await supabase.auth.getUser();
-      if (error) throw error;
-
-      if (refreshedUser?.email_confirmed_at) {
-        setVerificationSuccess(true);
-        toast.success('Email confirmed successfully!');
+      const isAlreadyRegistered = err.message?.toLowerCase().includes('already exists') || err.message?.toLowerCase().includes('already registered');
+      if (isAlreadyRegistered) {
+        toast.error(err.message, {
+          action: {
+            label: 'Sign In',
+            onClick: () => navigate('/auth/login')
+          }
+        });
       } else {
-        toast.info('Email is not yet confirmed. Please click the link in your email.');
+        toast.error(err.message || 'Registration failed. Please check your credentials and try again.');
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Could not verify confirmation status.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Transition to First Login Experience or Dashboard
-  const handleContinueAfterVerification = () => {
-    setStep('first_login_experience');
-  };
-
-  // 4. Handle First Onboarding Actions
+  // 3. Handle First Onboarding Actions
   const handleOnboardingAction = (route: string) => {
     toast.success('Onboarding choice successfully registered!');
     navigate(route);
@@ -211,12 +144,12 @@ export default function Signup() {
               <AccountTypeCard
                 id="select-store"
                 icon="🏪"
-                title="Store / Business Account"
-                description="Create a store and reach campus customers."
-                buttonText="Continue as Store Owner"
+                title="Business Owner Account"
+                description="Register your business and reach campus customers."
+                buttonText="Continue as Business Owner"
                 onClick={() => handleSelectAccountType('store')}
                 features={[
-                  'Customize complete store banner cover',
+                  'Customize complete business banner cover',
                   'Showcase physical cyber or cafe location',
                   'Access premium merchant analytics'
                 ]}
@@ -248,12 +181,12 @@ export default function Signup() {
               </Button>
               <div>
                 <h2 className="text-xl font-black text-secondary">
-                  {selectedType === 'student' ? 'Student Registration' : 'Store Owner Registration'}
+                  {selectedType === 'student' ? 'Student Registration' : 'Business Owner Registration'}
                 </h2>
                 <p className="text-xs text-muted-foreground font-semibold">
                   {selectedType === 'student' 
                     ? 'Get both buyer and seller capabilities instantly using peer-to-peer student tags.' 
-                    : 'Establish official shop listings and custom pages accessible by hundreds of scholars.'
+                    : 'Establish official business listings and storefront accessible by hundreds of scholars.'
                   }
                 </p>
               </div>
@@ -267,114 +200,7 @@ export default function Signup() {
           </div>
         )}
 
-        {/* ================= STEP 3: EMAIL VERIFICATION ================= */}
-        {step === 'email_verification' && (
-          <div className="p-8 space-y-6">
-            <div className="max-w-md mx-auto text-center space-y-6">
-              
-              {!verificationSuccess ? (
-                <>
-                  <div className="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-primary">
-                    <Mail className="h-8 w-8 text-primary" />
-                  </div>
-
-                  <div className="space-y-2">
-                    <h2 className="text-2xl font-black text-secondary">Check Your Email</h2>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      We have created your account and sent a confirmation link to <b className="text-secondary">{profile?.email || user?.email}</b>. Please check your inbox and click the verification link.
-                    </p>
-                  </div>
-
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 text-left space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-blue-100/60 flex items-center justify-center shrink-0 text-blue-700 font-bold text-xs">
-                        1
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                        Open the verification email sent from Kibabii Marketplace / Supabase.
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-blue-100/60 flex items-center justify-center shrink-0 text-blue-700 font-bold text-xs">
-                        2
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                        Click the confirmation link to automatically activate your student or shop account.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-3 pt-2">
-                    <Button
-                      id="check-email-status"
-                      type="button"
-                      disabled={isLoading}
-                      onClick={handleCheckEmailConfirmed}
-                      className="w-full h-11 bg-primary text-white font-bold rounded-xl text-xs shadow-md shadow-primary/25"
-                    >
-                      {isLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />}
-                      I've Clicked the Confirmation Link
-                    </Button>
-
-                    <Button
-                      id="resend-confirmation-email"
-                      type="button"
-                      variant="outline"
-                      disabled={isLoading}
-                      onClick={handleResendConfirmationEmail}
-                      className="w-full h-11 text-xs gap-1.5 font-bold rounded-xl text-slate-700 border"
-                    >
-                      <RefreshCw className="h-4 w-4" /> Resend Confirmation Email
-                    </Button>
-                  </div>
-
-                  <div className="pt-3 flex flex-col gap-2">
-                    <Button
-                      id="continue-without-verification"
-                      variant="ghost"
-                      className="text-muted-foreground hover:text-primary font-bold text-xs"
-                      onClick={() => setStep('first_login_experience')}
-                    >
-                      Continue to Marketplace Dashboard
-                    </Button>
-                    <Button
-                      id="go-to-login"
-                      variant="link"
-                      className="text-xs text-slate-500 hover:text-slate-900 font-semibold"
-                      onClick={() => navigate('/login')}
-                    >
-                      Already verified? Sign in here
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-6 pt-4 animate-fadeIn">
-                  <div className="mx-auto w-16 h-16 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-md">
-                    <CheckCircle2 className="h-8 w-8 text-emerald-600 fill-emerald-50" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h2 className="text-2xl font-black text-emerald-900">Email Confirmed!</h2>
-                    <p className="text-sm font-semibold text-emerald-700">
-                      Your Kibabii University account is now active and ready for campus trade.
-                    </p>
-                  </div>
-
-                  <Button
-                    id="continue-after-verification"
-                    onClick={handleContinueAfterVerification}
-                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 font-extrabold text-white rounded-xl gap-2 shadow-lg"
-                  >
-                    <span>Enter Marketplace</span>
-                    <ArrowRight className="h-5 w-5" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ================= STEP 4: FIRST LOGIN EXPERIENCE ================= */}
+        {/* ================= STEP 3: FIRST LOGIN EXPERIENCE ================= */}
         {step === 'first_login_experience' && (
           <div className="p-8 space-y-6">
             <div className="space-y-2 text-center">
