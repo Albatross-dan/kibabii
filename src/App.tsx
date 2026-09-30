@@ -53,7 +53,6 @@ import AdminDashboard from '@/pages/admin/AdminDashboard';
 import ProductVerification from '@/pages/admin/ProductVerification';
 
 // PWA Utilities
-import { PWAInstallBanner } from '@/components/pwa/PWAInstallBanner';
 import { OfflineIndicator } from '@/components/pwa/OfflineIndicator';
 import { PWAUpdateToast } from '@/components/pwa/PWAUpdateToast';
 
@@ -71,7 +70,6 @@ export default function App() {
       <BrowserRouter>
         <OfflineIndicator />
         <PWAUpdateToast />
-        <PWAInstallBanner />
         <Routes>
           {/* Public/Main Routes with Layout */}
           <Route element={<Layout />}>

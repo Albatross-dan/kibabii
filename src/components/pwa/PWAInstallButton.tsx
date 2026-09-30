@@ -59,7 +59,12 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         title="Install Comrade Market on your device"
       >
         <Download className={iconSize} />
-        {variant !== 'icon' && <span>Install App</span>}
+        {variant !== 'icon' && (
+          <>
+            <span className="hidden sm:inline">Install App</span>
+            <span className="sm:hidden">Install</span>
+          </>
+        )}
       </button>
 
       {/* Guided iOS Safari Modal */}

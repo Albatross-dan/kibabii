@@ -134,7 +134,11 @@ export default function Navbar() {
             </Link>
 
             {/* PWA Install Button */}
-            <PWAInstallButton variant="outline" size="sm" className="hidden lg:inline-flex rounded-full text-xs font-bold border-gray-200 hover:border-gray-300" />
+            <PWAInstallButton 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center rounded-full text-xs font-bold border-gray-200 hover:border-gray-300 text-slate-800 bg-white hover:bg-slate-50 transition-all shrink-0" 
+            />
 
             {/* Create Listing (➕ Sell) Button */}
             <Button
