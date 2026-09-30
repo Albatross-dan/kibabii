@@ -2,7 +2,11 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
+import { registerPWA } from './pwa.ts';
 import './index.css';
+
+// Initialize PWA Service Worker for offline capabilities and caching
+registerPWA();
 
 // Safe localStorage wrapper to prevent QuotaExceededError or security exceptions in sandboxed/iframe environments
 (function() {

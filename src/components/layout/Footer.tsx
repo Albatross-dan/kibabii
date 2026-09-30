@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Store, Facebook, Twitter, Instagram, Mail, Phone, MapPin } from 'lucide-react';
+import { PWAInstallButton } from '@/components/pwa/PWAInstallButton';
 
 export default function Footer() {
   return (
@@ -21,7 +22,8 @@ export default function Footer() {
             <span className="hidden sm:block">Official Kibabii University Marketplace</span>
           </div>
           
-          <div className="flex flex-wrap justify-center gap-6 text-[10px] font-black uppercase tracking-widest">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-[10px] font-black uppercase tracking-widest">
+            <PWAInstallButton variant="outline" size="sm" className="normal-case text-xs" />
             <Link to="#" className="hover:text-primary transition-colors">Safety Tips</Link>
             <Link to="#" className="hover:text-primary transition-colors">How to Buy</Link>
             <Link to="#" className="hover:text-primary transition-colors">Seller Policy</Link>

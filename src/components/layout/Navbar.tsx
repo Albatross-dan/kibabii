@@ -33,6 +33,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import StoreCreationModal from '@/components/store/StoreCreationModal';
+import { PWAInstallButton } from '@/components/pwa/PWAInstallButton';
 import { toast } from 'sonner';
 
 export default function Navbar() {
@@ -131,6 +132,9 @@ export default function Navbar() {
                 </Badge>
               )}
             </Link>
+
+            {/* PWA Install Button */}
+            <PWAInstallButton variant="outline" size="sm" className="hidden lg:inline-flex rounded-full text-xs font-bold border-gray-200 hover:border-gray-300" />
 
             {/* Create Listing (➕ Sell) Button */}
             <Button

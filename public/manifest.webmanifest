@@ -1,0 +1,76 @@
+{
+  "id": "/",
+  "name": "Comrade Market - University Student Marketplace",
+  "short_name": "ComradeMkt",
+  "description": "Buy and sell textbooks, electronics, fashion, food, and student accommodation on campus.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#101732",
+  "background_color": "#F5F5F5",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["shopping", "education", "lifestyle"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Sell an Item",
+      "short_name": "Sell",
+      "description": "Post a new item or service for sale",
+      "url": "/dashboard/listings/new",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Search Marketplace",
+      "short_name": "Search",
+      "description": "Browse campus products and deals",
+      "url": "/search",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "short_name": "Chats",
+      "description": "Check your buyer and seller inquiries",
+      "url": "/messages",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
