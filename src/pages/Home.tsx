@@ -499,14 +499,14 @@ export default function Home() {
       const svc = Array.isArray(listing.services) ? listing.services[0] : (listing.services || listing.service_type_details);
       const images = svc?.service_images ?? [];
       const sorted = [...images].sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
-      return sorted.find((i: any) => i.is_primary)?.image_url ?? sorted[0]?.image_url ?? listing.images?.[0] ?? svc?.image_url ?? 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1200&q=80';
+      return sorted.find((i: any) => i.is_primary)?.image_url ?? sorted[0]?.image_url ?? listing.images?.[0] ?? svc?.image_url ?? 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1920&q=90';
     }
     if (listing.listing_type === 'event') {
       const evt = Array.isArray(listing.events) ? listing.events[0] : (listing.events || listing.event_details);
       const knownBanner = (evt?.id === '6ea4d8d0-de43-4d43-b7c7-2d2b08e4d41a' || listing.id === 'bd0f09ac-c6e9-45f1-b2c0-e782bb847593')
         ? 'https://xolfhrzpgggtoeyycoeu.supabase.co/storage/v1/object/public/event-banners/fa19960e-df14-4b84-8034-c61a0fc55a05/26bcc79d-141a-439f-af2a-eab64c3dd8c0/1790251103223_banner.jpg'
         : null;
-      return evt?.banner_url ?? knownBanner ?? listing.images?.[0] ?? evt?.image_url ?? 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&q=80';
+      return evt?.banner_url ?? knownBanner ?? listing.images?.[0] ?? evt?.image_url ?? 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1920&q=90';
     }
     const prod = Array.isArray(listing.products) ? listing.products[0] : listing.products;
     const images = prod?.product_images ?? [];
@@ -541,13 +541,15 @@ export default function Home() {
         onClick={() => navigate(`/listing/${listing.id}`)}
         className="w-full bg-white rounded-lg border border-gray-150 shadow-xs overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
       >
-        <div className="relative aspect-square bg-slate-50 overflow-hidden">
+        <div className="relative aspect-square bg-slate-50 overflow-hidden flex items-center justify-center">
           {imageUrl ? (
             <img 
               src={imageUrl} 
               alt={listing.title} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
+              style={{ imageRendering: '-webkit-optimize-contrast' }}
               referrerPolicy="no-referrer"
+              loading="lazy"
             />
           ) : (
             <div className="w-full h-full bg-slate-100 flex items-center justify-center">
@@ -645,7 +647,9 @@ export default function Home() {
               src={imageUrl} 
               alt={listing.title} 
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              style={{ imageRendering: '-webkit-optimize-contrast' }}
               referrerPolicy="no-referrer"
+              loading="lazy"
             />
           ) : (
             <div className="w-full h-full bg-slate-100 flex items-center justify-center">
@@ -724,13 +728,15 @@ export default function Home() {
         onClick={() => navigate(`/listing/${id}`)}
         className="w-full bg-white rounded-lg border border-gray-150 shadow-xs overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer text-left flex flex-col justify-between group"
       >
-        <div className="relative aspect-square bg-slate-50 overflow-hidden">
+        <div className="relative aspect-square bg-slate-50 overflow-hidden flex items-center justify-center">
           {imageUrl ? (
             <img 
               src={imageUrl} 
               alt={title} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
+              style={{ imageRendering: '-webkit-optimize-contrast' }}
               referrerPolicy="no-referrer"
+              loading="lazy"
             />
           ) : (
             <div className="w-full h-full bg-slate-100 flex items-center justify-center">
@@ -819,7 +825,7 @@ export default function Home() {
       || (typeof service.image_url === 'string' ? service.image_url : null)
       || svc?.image_url
       || service.banner_url
-      || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80';
+      || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1200&q=90';
     const price = Number(service.starting_price || service.price || service.service_type_details?.starting_price || service.service_type_details?.price || svc?.starting_price || svc?.price || 0);
 
     return (
@@ -828,13 +834,15 @@ export default function Home() {
         onClick={() => navigate(`/listing/${service.listing_id || service.id}`)}
         className="w-full bg-white rounded-lg border border-gray-150 shadow-xs overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer text-left flex flex-col justify-between group"
       >
-        <div className="relative aspect-square bg-slate-100 overflow-hidden">
+        <div className="relative aspect-square bg-slate-100 overflow-hidden flex items-center justify-center">
           {imageUrl ? (
             <img 
               src={imageUrl} 
               alt={service.title || 'Campus Service'} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-300"
+              style={{ imageRendering: '-webkit-optimize-contrast' }}
               referrerPolicy="no-referrer"
+              loading="lazy"
             />
           ) : (
             <div className="w-full h-full bg-slate-100 flex items-center justify-center">
@@ -892,7 +900,7 @@ export default function Home() {
       || (Array.isArray(ev?.images) && ev.images[0])
       || ev?.image_url 
       || event.image_url 
-      || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
+      || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&q=90';
     const price = Number(ev?.ticket_price ?? event.ticket_price ?? 0);
     const isFree = ev?.is_free ?? event.is_free ?? (price === 0);
 
@@ -908,7 +916,9 @@ export default function Home() {
               src={imageUrl} 
               alt={event.title || 'Campus Event'} 
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              style={{ imageRendering: '-webkit-optimize-contrast' }}
               referrerPolicy="no-referrer"
+              loading="lazy"
             />
           ) : (
             <div className="w-full h-full bg-slate-100 flex items-center justify-center">
@@ -1053,13 +1063,15 @@ export default function Home() {
           onClick={() => navigate(`/listing/${listing.id}`)}
           className="w-full bg-white rounded-lg border border-gray-150 shadow-xs overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer text-left flex flex-col justify-between group"
         >
-          <div className="relative aspect-square bg-slate-50 overflow-hidden">
+          <div className="relative aspect-square bg-slate-50 overflow-hidden flex items-center justify-center">
             {imageUrl ? (
               <img 
                 src={imageUrl} 
                 alt={listing.title} 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                className="w-full h-full object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
+                style={{ imageRendering: '-webkit-optimize-contrast' }}
                 referrerPolicy="no-referrer"
+                loading="lazy"
               />
             ) : (
               <div className="w-full h-full bg-slate-100 flex items-center justify-center">
@@ -1127,15 +1139,21 @@ export default function Home() {
           if (isSwipingRef.current) return;
           navigate(`/listing/${slide.id}`);
         }}
-        className="w-full h-full shrink-0 relative overflow-hidden flex-none rounded-[16px] cursor-pointer group"
+        className="w-full h-full shrink-0 relative overflow-hidden flex-none rounded-[16px] cursor-pointer group bg-slate-950"
       >
-        {/* Background image or gradient */}
+        {/* Full-Cover Crystal Clear Image */}
         {imgUrl ? (
           <img 
             src={imgUrl} 
             alt={slide.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+            style={{ 
+              imageRendering: '-webkit-optimize-contrast',
+              filter: 'contrast(1.05) saturate(1.05)'
+            }}
             referrerPolicy="no-referrer"
+            loading="eager"
+            decoding="sync"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#334155] flex items-center justify-center">
@@ -1143,8 +1161,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* Minimal gradient at bottom so image stays fully visible */}
-        <div className="absolute inset-x-0 bottom-0 h-20 sm:h-24 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+        {/* Minimal gradient at bottom so image stays fully visible and text is crystal clear */}
+        <div className="absolute inset-x-0 bottom-0 h-24 sm:h-28 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
 
         {/* Bottom Content: Only Product Name and Price */}
         <div className="absolute bottom-3 left-4 right-20 sm:bottom-4 sm:left-6 sm:right-28 text-left pointer-events-none space-y-0.5">
@@ -1182,7 +1200,7 @@ export default function Home() {
           <button
             type="button"
             onClick={() => navigate('/search?sellerType=student')}
-            className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-gray-100 flex items-center gap-2.5 sm:gap-3 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group"
+            className="bg-[#ECFDF5] rounded-2xl p-2.5 sm:p-3 shadow-xs border border-[#10B981]/30 flex items-center gap-2.5 sm:gap-3 text-left hover:shadow-md hover:border-[#10B981]/50 transition-all cursor-pointer group"
           >
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 stroke-[2.2]" />
@@ -1197,7 +1215,7 @@ export default function Home() {
           <button
             type="button"
             onClick={() => navigate('/search?sellerType=store')}
-            className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-gray-100 flex items-center gap-2.5 sm:gap-3 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group"
+            className="bg-[#EEF2FF] rounded-2xl p-2.5 sm:p-3 shadow-xs border border-[#6366F1]/30 flex items-center gap-2.5 sm:gap-3 text-left hover:shadow-md hover:border-[#6366F1]/50 transition-all cursor-pointer group"
           >
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <Store className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500 stroke-[2.2]" />
@@ -1315,7 +1333,7 @@ export default function Home() {
 
           {/* [3] HERO CAROUSEL */}
           <div 
-            className="relative overflow-hidden rounded-2xl bg-[#0F172A] text-white shadow-sm aspect-[16/10] md:aspect-[21/9] w-full"
+            className="relative overflow-hidden rounded-2xl bg-[#0F172A] text-white shadow-sm aspect-[16/10] sm:aspect-[16/9] md:aspect-[16/8] max-h-[420px] w-full"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
             onTouchStart={handleTouchStart}

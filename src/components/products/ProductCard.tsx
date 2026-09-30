@@ -27,7 +27,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const isProductListing = !isLostFound && (!(product as any).listing_type || (product as any).listing_type === 'product');
   const primaryImg = (product as any).product_images?.find((img: any) => img.is_primary)?.image_url
     || (product as any).product_images?.[0]?.image_url;
-  const coverImage = (product as any).image_url || primaryImg || product.images?.[0] || (product as any).image || (product as any).primary_image || (isLostFound ? 'https://images.unsplash.com/photo-1579208575657-c595a05383b7?w=600&q=80' : `https://picsum.photos/seed/${product.id}/400/400`);
+  const coverImage = (product as any).image_url || primaryImg || product.images?.[0] || (product as any).image || (product as any).primary_image || (isLostFound ? 'https://images.unsplash.com/photo-1579208575657-c595a05383b7?w=1200&q=90' : `https://picsum.photos/seed/${product.id}/800/800`);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -105,6 +105,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             src={coverImage}
             alt={product.title}
             className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+            style={{ imageRendering: '-webkit-optimize-contrast' }}
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-black/[0.01] group-hover:bg-transparent transition-colors"></div>

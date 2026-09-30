@@ -72,7 +72,7 @@ export function getDashboardSections(options: {
     { id: 'my-marketplace', label: '3. My Marketplace', title: 'My Marketplace', num: '03', show: true, desc: 'Active listings, drafts & sold items' },
     { id: 'followed-stores', label: '4. Followed Stores', title: 'Followed Stores', num: '04', show: true, desc: 'Favorite campus vendors & shops' },
     { id: 'verification-badges', label: '5. Verification & Badges', title: 'Verification & Badges', num: '05', show: true, desc: 'Student ID, seller badge & trust score' },
-    { id: 'seller-center', label: '6. Seller Center', title: 'Seller Center', num: '06', show: true, desc: 'Escrow orders, payouts & inquiries' },
+    { id: 'seller-center', label: '6. Seller Center', title: 'Seller Center', num: '06', show: true, desc: 'Active orders, payouts & inquiries' },
     { id: 'store-management', label: '7. Store Management', title: 'Store Management', num: '07', show: isStore, desc: 'Store profile, inventory & shop settings' },
     { id: 'accommodation-management', label: '8. Accommodation', title: 'Accommodation', num: '08', show: showAccommodation, desc: 'Hostels, rentals & student bookings' },
     { id: 'services-management', label: '9. Services Management', title: 'Services Management', num: '09', show: showServices, desc: 'Skills, freelance gigs & service requests' },

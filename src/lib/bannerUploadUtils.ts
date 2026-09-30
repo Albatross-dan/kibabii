@@ -81,8 +81,8 @@ export function isNetworkLevelError(err: any): boolean {
  */
 export async function compressAndResizeBannerImage(
   input: File | Blob | string,
-  maxEdge: number = 1600,
-  quality: number = 0.8
+  maxEdge: number = 2048,
+  quality: number = 0.9
 ): Promise<CompressedBannerResult> {
   // If not running in browser environment, return fallback
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -142,6 +142,8 @@ export async function compressAndResizeBannerImage(
     // Fill white background in case source has alpha channel
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
     const blob = await new Promise<Blob | null>((resolve) => {

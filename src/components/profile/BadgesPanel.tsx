@@ -49,7 +49,7 @@ export default function BadgesPanel({ profile }: BadgesPanelProps) {
       tag: '⭐ Top Seller',
       earned: !!profile.is_top_seller,
       description: 'Maintained top ratings across recent comrade transactions.',
-      progressText: 'Toggle Seller Status in simulated controls.',
+      progressText: 'Maintain high ratings across recent comrade transactions.',
       progressPercent: profile.is_top_seller ? 100 : 60
     },
     {

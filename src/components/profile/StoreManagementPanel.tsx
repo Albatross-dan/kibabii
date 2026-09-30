@@ -40,7 +40,7 @@ export default function StoreManagementPanel() {
   const handleCheckoutSubscription = (plan: 'free' | 'growth' | 'elite') => {
     setSelectedPlan(plan);
     const cost = plan === 'elite' ? 'KSh 799/mo' : plan === 'growth' ? 'KSh 299/mo' : 'Free';
-    toast.success(`💎 Store Plan updated to ${plan.toUpperCase()} (${cost}). Future Ready Escrow integrated.`);
+    toast.success(`💎 Store Plan updated to ${plan.toUpperCase()} (${cost}).`);
   };
 
   return (
@@ -181,13 +181,6 @@ export default function StoreManagementPanel() {
                 </div>
               </div>
             ))}
-          </div>
-
-          <div className="p-2.5 bg-emerald-50/30 border border-emerald-100 rounded-xl flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span className="text-[9.5px] leading-tight font-semibold text-emerald-800">
-              Payments are fully protected via the integrated escrow safety protocols. Funds are only triggered upon verified delivery.
-            </span>
           </div>
         </Card>
       </div>

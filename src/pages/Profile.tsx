@@ -86,6 +86,10 @@ export default function Profile() {
   // Real database role and store ownership state
   const [realUserRoles, setRealUserRoles] = useState<string[]>([]);
   const [userStore, setUserStore] = useState<any>(null);
+  const [hasStoreRow, setHasStoreRow] = useState<boolean>(false);
+  const [dbCampusName, setDbCampusName] = useState<string | null>(null);
+  const [subscriptionPlanName, setSubscriptionPlanName] = useState<string | null>(null);
+  const [storeFollowersCount, setStoreFollowersCount] = useState<number>(0);
   const [isShopOwner, setIsShopOwner] = useState<boolean>(false);
   const [isRolesLoading, setIsRolesLoading] = useState<boolean>(true);
   const [realAuthUser, setRealAuthUser] = useState<any>(null);
@@ -123,48 +127,56 @@ export default function Profile() {
         return;
       }
 
-      // 1. Fetch real profile from profiles / public_profiles to ensure account_type is accurate
-      let dbAccountType = profile?.account_type;
+      // 1. Fetch real profile directly from profiles table via auth.uid()
+      // Pull exactly: full_name, username, phone, whatsapp_number, campus_id, account_type, is_verified, seller_rating, seller_rating_count, created_at
+      let profileRow: any = null;
       try {
-        let profileRow: any = null;
-        const { data: profData } = await supabase
+        const { data: profData, error: profErr } = await supabase
           .from('profiles')
-          .select('account_type, role, is_store, store_name')
+          .select('id, full_name, username, avatar_url, phone, whatsapp_number, campus_id, account_type, role, is_verified, seller_rating, seller_rating_count, created_at, is_top_seller, student_verification_status, store_verification_status')
           .eq('id', currentUserId)
           .maybeSingle();
 
         if (profData) {
           profileRow = profData;
-        } else {
-          const { data: pubProfileRow } = await supabase
-            .from('public_profiles')
-            .select('account_type, role, is_store')
-            .eq('id', currentUserId)
-            .maybeSingle();
-          profileRow = pubProfileRow;
-        }
-
-        if (profileRow?.account_type) {
-          dbAccountType = profileRow.account_type;
+        } else if (profErr) {
+          console.warn('Profiles query notice:', profErr);
         }
       } catch (profErr) {
-        console.warn('Profile verification notice:', profErr);
+        console.warn('Profile fetch notice:', profErr);
       }
 
-      // 2. Read precomputed seller reputation from profiles (Section 3 backend contract)
-      try {
-        const rep = await reviewService.getSellerReputation(currentUserId);
-        setRealReviews({
-          rating: rep.seller_rating,
-          count: rep.seller_rating_count
-        });
-      } catch (revErr) {
-        console.warn('Reviews fetch notice:', revErr);
-        setRealReviews({ rating: 0, count: 0 });
-      }
+      const activeProfile = profileRow || profile;
+      const accountType = activeProfile?.account_type || 'student';
+      const isStoreAccount = accountType === 'store';
 
-      // 3. Count listings across all 5 listing types as requested:
-      // products, services, accommodations, events, lost & found
+      // 2. Fetch campus display by joining campus_id to campuses.name
+      let resolvedCampusName: string | null = null;
+      if (activeProfile?.campus_id) {
+        try {
+          const { data: campusRow } = await supabase
+            .from('campuses')
+            .select('name')
+            .eq('id', activeProfile.campus_id)
+            .maybeSingle();
+          if (campusRow?.name) {
+            resolvedCampusName = campusRow.name;
+          }
+        } catch (campErr) {
+          console.warn('Campus lookup notice:', campErr);
+        }
+      }
+      setDbCampusName(resolvedCampusName);
+
+      // 3. Seller rating & reviews from seller_rating + seller_rating_count specifically
+      const sRating = Number(activeProfile?.seller_rating ?? 0);
+      const sRatingCount = Number(activeProfile?.seller_rating_count ?? 0);
+      setRealReviews({
+        rating: sRating,
+        count: sRatingCount
+      });
+
+      // 4. Count listings across actual tables
       let accurateListingCount = profile?.products_listed || 0;
       let accurateSoldCount = profile?.products_sold || 0;
       try {
@@ -194,57 +206,112 @@ export default function Profile() {
         console.warn('Listing counts fetch notice:', countErr);
       }
 
-      // 4. Check real roles from user_roles table
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', currentUserId);
+      // 5. Stores table query (only if account_type === 'store', matched on owner_id = auth.uid())
+      let activeStore: any = null;
+      let realFollowersCount = 0;
+      let resolvedPlanName: string | null = null;
 
-      if (rolesError) {
-        console.warn('user_roles query notice:', rolesError);
+      if (isStoreAccount) {
+        try {
+          const { data: storeRows, error: storeError } = await supabase
+            .from('stores')
+            .select('id, owner_id, name, store_name, category, location, description, banner_url, follower_count, verification_status, is_verified, subscription_plan')
+            .eq('owner_id', currentUserId)
+            .order('created_at', { ascending: false });
+
+          if (storeError) {
+            console.warn('stores query notice:', storeError);
+          }
+
+          activeStore = storeRows && storeRows.length > 0 ? storeRows[0] : null;
+
+          if (activeStore) {
+            // Pull follower count from store_followers count
+            try {
+              const { count: followersCount } = await supabase
+                .from('store_followers')
+                .select('*', { count: 'exact', head: true })
+                .eq('store_id', activeStore.id);
+              realFollowersCount = followersCount ?? activeStore.follower_count ?? 0;
+            } catch (fErr) {
+              realFollowersCount = activeStore.follower_count ?? 0;
+            }
+
+            // Pull actual assigned plan from store_subscriptions -> subscription_plans
+            try {
+              const { data: subData } = await supabase
+                .from('store_subscriptions')
+                .select('plan_id, status')
+                .eq('store_id', activeStore.id)
+                .maybeSingle();
+
+              if (subData?.plan_id) {
+                const { data: planData } = await supabase
+                  .from('subscription_plans')
+                  .select('display_name, plan_name')
+                  .eq('id', subData.plan_id)
+                  .maybeSingle();
+                if (planData) {
+                  resolvedPlanName = planData.display_name || planData.plan_name;
+                }
+              }
+
+              // Fallback to activeStore.subscription_plan if store_subscriptions has no plan record
+              if (!resolvedPlanName && activeStore.subscription_plan) {
+                const { data: planByName } = await supabase
+                  .from('subscription_plans')
+                  .select('display_name, plan_name')
+                  .ilike('plan_name', activeStore.subscription_plan)
+                  .maybeSingle();
+                resolvedPlanName = planByName?.display_name || activeStore.subscription_plan;
+              }
+            } catch (subErr) {
+              console.warn('Store subscription fetch notice:', subErr);
+            }
+          }
+        } catch (sErr) {
+          console.warn('Stores fetch notice:', sErr);
+        }
       }
 
-      const roleList = roles?.map(r => r.role) || [];
-      setRealUserRoles(roleList);
-
-      // 5. Check real store ownership from stores table
-      const { data: storeRows, error: storeError } = await supabase
-        .from('stores')
-        .select('*')
-        .eq('owner_id', currentUserId)
-        .order('created_at', { ascending: false });
-
-      if (storeError) {
-        console.warn('stores query notice:', storeError);
-      }
-
-      let activeStore = storeRows && storeRows.length > 0 ? storeRows[0] : null;
-      if (!activeStore) {
-        activeStore = await storeService.getUserStore(currentUserId);
-      }
       setUserStore(activeStore);
+      setHasStoreRow(Boolean(activeStore));
+      setStoreFollowersCount(realFollowersCount);
+      setSubscriptionPlanName(resolvedPlanName);
+      setIsShopOwner(isStoreAccount && Boolean(activeStore));
 
-      const isStoreAccount = dbAccountType === 'store' || profile?.account_type === 'store' || roleList.includes('shop_owner') || roleList.includes('store') || profile?.role === 'shop_owner' || profile?.is_store || Boolean(activeStore);
-      const isOwner = isStoreAccount;
+      // 6. User roles table
+      try {
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', currentUserId);
+        const roleList = roles?.map(r => r.role) || [];
+        setRealUserRoles(roleList);
+      } catch (rolesErr) {
+        console.warn('User roles fetch notice:', rolesErr);
+      }
 
-      setIsShopOwner(isOwner);
-
-      // Keep profile state aligned with real database values
-      if (profile && (
-        profile.products_listed !== accurateListingCount ||
-        profile.products_sold !== accurateSoldCount ||
-        (dbAccountType && profile.account_type !== dbAccountType) ||
-        (isOwner && profile.account_type !== 'store')
-      )) {
+      // Synchronize profile state with real live data from profiles table
+      if (profile && activeProfile) {
         if (setProfile) {
           setProfile({
             ...profile,
+            full_name: activeProfile.full_name ?? profile.full_name,
+            username: activeProfile.username ?? profile.username,
+            phone: activeProfile.phone ?? null,
+            whatsapp_number: activeProfile.whatsapp_number ?? null,
+            campus_id: activeProfile.campus_id ?? null,
+            campus: resolvedCampusName,
+            account_type: accountType,
+            is_verified: Boolean(activeProfile.is_verified),
+            seller_rating: sRating,
+            seller_rating_count: sRatingCount,
             products_listed: accurateListingCount,
             products_sold: accurateSoldCount,
-            account_type: dbAccountType || (isOwner ? 'store' : profile.account_type),
-            role: isOwner ? 'shop_owner' : profile.role,
-            is_store: isOwner ? true : profile.is_store,
-            store_name: activeStore?.name || profile.store_name
+            role: isStoreAccount && Boolean(activeStore) ? 'shop_owner' : (activeProfile.role || profile.role),
+            is_store: isStoreAccount && Boolean(activeStore),
+            store_name: activeStore?.name || activeStore?.store_name || null
           });
         }
       }
@@ -259,7 +326,7 @@ export default function Profile() {
     fetchRealRolesAndStore();
   }, [user?.id]);
 
-  // Simulation flags for sections 8, 9, 10
+  // Visibility flags for sections 8, 9, 10
   const [showAccommodation, setShowAccommodation] = useState(true);
   const [showServices, setShowServices] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
@@ -352,15 +419,15 @@ export default function Profile() {
     );
   }
 
-  const isStudent = profile.role === 'student' || profile.role === 'both' || profile.account_type === 'student';
-  const isStore = profile.account_type === 'store' || isShopOwner || profile.role === 'shop_owner' || profile.role === 'store' || profile.is_store === true;
+  const isStudent = profile.account_type !== 'store';
+  const isStore = profile.account_type === 'store';
 
-  const badgeLabel = profile.account_type === 'store'
+  const badgeLabel = isStore
     ? 'STORE ACCOUNT'
     : 'STUDENT ACCOUNT';
 
   const visibleDashboardSections = getDashboardSections({
-    isStore,
+    isStore: isStore && hasStoreRow,
     isAdmin,
     showAccommodation,
     showServices,
@@ -394,7 +461,7 @@ export default function Profile() {
         {/* Left column: Sticky Navigation Sidebar Tracker (Visible on Desktop) */}
         <div className="hidden lg:block lg:col-span-1 lg:sticky lg:top-[80px]">
           <DashboardSidebar 
-            isStore={isStore}
+            isStore={isStore && hasStoreRow}
             isAdmin={isAdmin}
             showAccommodation={showAccommodation}
             showServices={showServices}
@@ -403,14 +470,6 @@ export default function Profile() {
             isMenuOpen={isNavMenuOpen}
             setIsMenuOpen={setIsNavMenuOpen}
           />
-
-          {/* Quick Stats sidebar banner */}
-          <div className="mt-4 p-4 rounded-3xl border border-dashed bg-stone-50/40 text-left space-y-2 hidden lg:block">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Futuristic Add-ons Info</span>
-            <div className="p-2.5 bg-indigo-50 rounded-xl text-[10px] leading-tight font-semibold text-indigo-700">
-              ⚡ All payments on Kibabii Market are protected by our automatic release Escrow and immediate Courier Dispatch services.
-            </div>
-          </div>
         </div>
 
         {/* Right column: Vertical Stacked sections of unified dashboard */}
@@ -435,8 +494,15 @@ export default function Profile() {
             <div className="relative rounded-3xl overflow-hidden border bg-white shadow-sm hover:shadow transition-shadow">
               
               {/* Cover Banner Image */}
-              <div className="h-44 sm:h-52 w-full relative" style={{ background: (userStore?.banner_url || profile.store_banner_image) ? undefined : 'linear-gradient(135deg, #1e1b4b, #311042)' }}>
-                {(userStore?.banner_url || profile.store_banner_image) && (
+              <div 
+                className="h-44 sm:h-52 w-full relative" 
+                style={{ 
+                  background: (isStore && hasStoreRow && (userStore?.banner_url || profile.store_banner_image)) 
+                    ? undefined 
+                    : 'linear-gradient(135deg, #1e1b4b, #311042)' 
+                }}
+              >
+                {(isStore && hasStoreRow && (userStore?.banner_url || profile.store_banner_image)) && (
                   <img 
                     src={userStore?.banner_url || profile.store_banner_image} 
                     className="w-full h-full object-cover opacity-80 absolute inset-0" 
@@ -446,23 +512,36 @@ export default function Profile() {
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                 
-                {/* Primary Account Type Badge — The single, unambiguous, most prominent element */}
+                {/* Primary Account Type Badge on top right of banner */}
                 <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-                  <div 
-                    id="profile-header-account-type-badge"
-                    className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider shadow-xl flex items-center gap-2 backdrop-blur-md border transition-all ${
-                      profile.account_type === 'store'
-                        ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-black/20'
-                        : 'bg-blue-600 text-white border-blue-400 ring-2 ring-black/20'
-                    }`}
-                  >
-                    {profile.account_type === 'store' ? (
-                      <StoreIcon className="h-4 w-4 stroke-[2.5]" />
+                  {isStore ? (
+                    hasStoreRow ? (
+                      <div 
+                        id="profile-header-account-type-badge"
+                        className="px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider shadow-xl flex items-center gap-2 backdrop-blur-md border bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-black/20"
+                      >
+                        <StoreIcon className="h-4 w-4 stroke-[2.5]" />
+                        <span>STORE ACCOUNT</span>
+                      </div>
                     ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsStoreModalOpen(true)}
+                        className="px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider shadow-xl flex items-center gap-2 backdrop-blur-md bg-amber-500 hover:bg-amber-600 text-white border border-amber-400 ring-2 ring-black/20 transition-all cursor-pointer"
+                      >
+                        <span>Complete Store Setup</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </button>
+                    )
+                  ) : (
+                    <div 
+                      id="profile-header-account-type-badge"
+                      className="px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider shadow-xl flex items-center gap-2 backdrop-blur-md border bg-blue-600 text-white border-blue-400 ring-2 ring-black/20"
+                    >
                       <GraduationCap className="h-4 w-4 stroke-[2.5]" />
-                    )}
-                    <span>{badgeLabel}</span>
-                  </div>
+                      <span>STUDENT ACCOUNT</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -472,39 +551,58 @@ export default function Profile() {
                   <img 
                     src={profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=KibuUser'} 
                     className="h-full w-full object-cover" 
-                    alt={profile.full_name} 
+                    alt={profile.full_name || 'Profile'} 
                   />
                 </div>
 
                 <div className="flex-1 space-y-1 pt-1">
                   <div className="flex flex-wrap items-center gap-2.5">
                     <h1 className="text-xl sm:text-2xl font-black text-slate-900 leading-none">
-                      {isStore ? (userStore?.name || profile.store_name || 'Comrade Store') : profile.full_name}
+                      {isStore && hasStoreRow 
+                        ? (userStore?.name || userStore?.store_name || profile.full_name || 'My Store') 
+                        : (profile.full_name || 'Student Account')}
                     </h1>
-                    <span 
-                      id="profile-account-type-chip"
-                      className={`text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full border shadow-xs flex items-center gap-1.5 ${
-                        profile.account_type === 'store'
-                          ? 'bg-amber-100 text-amber-950 border-amber-300'
-                          : 'bg-blue-100 text-blue-950 border-blue-300'
-                      }`}
-                    >
-                      {profile.account_type === 'store' ? (
-                        <StoreIcon className="h-3.5 w-3.5 text-amber-700" />
+                    {isStore ? (
+                      hasStoreRow ? (
+                        <span 
+                          id="profile-account-type-chip"
+                          className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full border shadow-xs flex items-center gap-1.5 bg-amber-100 text-amber-950 border-amber-300"
+                        >
+                          <StoreIcon className="h-3.5 w-3.5 text-amber-700" />
+                          <span>Store Account</span>
+                        </span>
                       ) : (
+                        <button
+                          type="button"
+                          onClick={() => setIsStoreModalOpen(true)}
+                          className="text-[11px] font-black tracking-wider px-3 py-1 rounded-full border shadow-xs flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 cursor-pointer"
+                        >
+                          <span>⚠️ Setup Required</span>
+                        </button>
+                      )
+                    ) : (
+                      <span 
+                        id="profile-account-type-chip"
+                        className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full border shadow-xs flex items-center gap-1.5 bg-blue-100 text-blue-950 border-blue-300"
+                      >
                         <GraduationCap className="h-3.5 w-3.5 text-blue-700" />
-                      )}
-                      <span>{badgeLabel}</span>
-                    </span>
+                        <span>Student Account</span>
+                      </span>
+                    )}
                     {profile.is_top_seller && (
                       <span className="text-[10px] bg-amber-150/80 text-amber-800 border-amber-250 font-extrabold px-2 py-0.5 rounded-full flex items-center gap-0.5">
                         ⭐ Top Seller
                       </span>
                     )}
+                    {profile.is_verified && (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                        ✓ Verified
+                      </span>
+                    )}
                   </div>
                   
                   <p className="text-slate-500 text-[11px] sm:text-xs font-semibold flex flex-wrap items-center gap-2">
-                    <span>@{profile.username}</span>
+                    <span>{profile.username ? `@${profile.username}` : '@user'}</span>
                     {((profile as any)?.created_at || realAuthUser?.created_at) ? (
                       <>
                         <span>•</span>
@@ -514,18 +612,17 @@ export default function Profile() {
                           }
                         </span>
                       </>
-                    ) : (profile.join_date ? (
-                      <>
-                        <span>•</span>
-                        <span className="flex items-center gap-1 text-slate-400">
-                          <Calendar className="h-3.5 w-3.5 text-slate-400" /> Joined {profile.join_date}
-                        </span>
-                      </>
-                    ) : null)}
+                    ) : null}
                     <span>•</span>
-                    <span className="flex items-center gap-1 text-primary">
-                      <MapPin className="h-3.5 w-3.5 text-primary" /> {profile.campus || profile.store_location || 'Kibabii University'}
-                    </span>
+                    {dbCampusName ? (
+                      <span className="flex items-center gap-1 text-primary">
+                        <MapPin className="h-3.5 w-3.5 text-primary" /> {dbCampusName}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-slate-400 italic">
+                        <MapPin className="h-3.5 w-3.5 text-slate-400" /> Campus: Not added yet
+                      </span>
+                    )}
                   </p>
 
                   <div className="flex items-center gap-1 text-amber-500 text-xs font-black pt-1">
@@ -546,8 +643,10 @@ export default function Profile() {
                 <div className="flex gap-1 mt-2 sm:mt-0">
                   <AccountBadge 
                     emailVerified={Boolean(realAuthUser?.email_confirmed_at)}
+                    isVerified={Boolean(profile.is_verified)}
+                    hasStore={hasStoreRow}
                     studentVerificationStatus={profile.student_verification_status}
-                    storeVerificationStatus={userStore?.is_verified ? 'approved' : 'unverified'}
+                    storeVerificationStatus={userStore?.verification_status || (userStore?.is_verified ? 'approved' : 'unverified')}
                     isTopSeller={profile.is_top_seller}
                     role={profile.role}
                     size="md"
@@ -556,16 +655,42 @@ export default function Profile() {
                 </div>
               </div>
 
+              {/* Complete Store Setup Prompt banner for store accounts without a registered store row */}
+              {isStore && !hasStoreRow && (
+                <div className="mx-6 mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-600 text-white rounded-xl shadow-md shrink-0">
+                      <StoreIcon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Complete your store setup</h3>
+                      <p className="text-xs text-slate-600 font-medium">Your account type is set to Business Owner, but your store is not registered in the marketplace yet. Register your store name, stall spot, and category to unlock merchant tools.</p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => setIsStoreModalOpen(true)}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-9 px-4 rounded-xl shadow-md shrink-0 cursor-pointer"
+                  >
+                    Complete Store Setup
+                  </Button>
+                </div>
+              )}
+
               {/* Account Details & Credentials Dropdowns */}
               <div className="px-6 pb-6">
                 <AccountDetailsDropdowns 
                   profile={profile}
                   realAuthUser={realAuthUser}
                   userStore={userStore}
+                  campusName={dbCampusName}
+                  subscriptionPlanName={subscriptionPlanName}
+                  storeFollowersCount={storeFollowersCount}
                   realReviews={realReviews}
                   realMetrics={realMetrics}
                   isStore={isStore}
+                  hasStoreRow={hasStoreRow}
                   wishlistCount={wishlistItems.length}
+                  onOpenStoreModal={() => setIsStoreModalOpen(true)}
                 />
               </div>
 
@@ -633,7 +758,7 @@ export default function Profile() {
                   <h3 className="text-sm font-black text-slate-905 uppercase tracking-wider flex items-center gap-2">
                     <ShoppingBag className="h-4.5 w-4.5 text-indigo-500" /> My Marketplace
                   </h3>
-                  <p className="text-[10.5px] text-slate-400 font-bold mt-0.5">Review current ads, check simulated customer inbox rooms, and trace your purchases.</p>
+                  <p className="text-[10.5px] text-slate-400 font-bold mt-0.5">Review current listings, messages, saved wishlist items, and order history.</p>
                 </div>
                 {collapsedSections['my-marketplace'] ? <ChevronDown className="h-5 w-5 text-slate-400" /> : <ChevronUp className="h-5 w-5 text-slate-400" />}
               </button>
@@ -687,7 +812,7 @@ export default function Profile() {
                   <h3 className="text-sm font-black text-slate-905 uppercase tracking-wider flex items-center gap-2">
                     <ShieldCheck className="h-4.5 w-4.5 text-emerald-505 text-emerald-600" /> Verification & Badge Index
                   </h3>
-                  <p className="text-[10.5px] text-slate-400 font-bold mt-0.5">Submit verification papers or browse unlocked peer credentials.</p>
+                  <p className="text-[10.5px] text-slate-400 font-bold mt-0.5">View your account verification status, student credentials, and seller badges.</p>
                 </div>
                 {collapsedSections['verification-badges'] ? <ChevronDown className="h-5 w-5 text-slate-400" /> : <ChevronUp className="h-5 w-5 text-slate-400" />}
               </button>
@@ -727,7 +852,7 @@ export default function Profile() {
 
 
           {/* ======================= SECTION 7: STORE MANAGEMENT ======================= */}
-          {isStore && (
+          {isStore && hasStoreRow && (
             <section id="store-management" className="scroll-mt-6 text-left">
               <Card className="border border-indigo-150 rounded-3xl overflow-hidden shadow-sm">
                 <button 
@@ -765,7 +890,7 @@ export default function Profile() {
                     <h3 className="text-sm font-black text-slate-905 uppercase tracking-wider flex items-center gap-2">
                       <Building className="h-4.5 w-4.5 text-sky-505 text-sky-600" /> Hostel & Accommodation
                     </h3>
-                    <p className="text-[10.5px] text-slate-400 font-bold mt-0.5">Simulate vacancy registrations, block listings, and track student search counts.</p>
+                    <p className="text-[10.5px] text-slate-400 font-bold mt-0.5">Manage hostel vacancies, student room listings, and rental availability.</p>
                   </div>
                   {collapsedSections['accommodation-management'] ? <ChevronDown className="h-5 w-5 text-slate-400" /> : <ChevronUp className="h-5 w-5 text-slate-400" />}
                 </button>
@@ -879,7 +1004,7 @@ export default function Profile() {
                   <h3 className="text-sm font-black text-slate-905 uppercase tracking-wider flex items-center gap-2">
                     <HelpCircle className="h-4.5 w-4.5 text-sky-500" /> Help & Support Panel
                   </h3>
-                  <p className="text-[10.5px] text-slate-400 font-bold mt-0.5">Submit immediate dispute feedback and read regular transaction safety guides.</p>
+                  <p className="text-[10.5px] text-slate-400 font-bold mt-0.5">Contact support via WhatsApp hotline and read transaction safety guidelines.</p>
                 </div>
                 {collapsedSections['help-support'] ? <ChevronDown className="h-5 w-5 text-slate-400" /> : <ChevronUp className="h-5 w-5 text-slate-400" />}
               </button>

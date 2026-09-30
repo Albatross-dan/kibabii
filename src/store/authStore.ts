@@ -16,6 +16,7 @@ export interface UserProfile {
   role: 'student' | 'store' | 'admin' | 'both' | 'shop_owner';
   account_type?: 'student' | 'store' | 'admin' | 'both' | 'shop_owner';
   verification_status?: 'unverified' | 'pending' | 'verified' | 'rejected';
+  is_verified?: boolean;
   can_buy?: boolean;
   can_sell?: boolean;
   is_store?: boolean;
@@ -40,6 +41,7 @@ export interface UserProfile {
   };
   is_top_seller?: boolean;
   seller_rating?: number;
+  seller_rating_count?: number;
   total_reviews?: number;
   join_date?: string;
   wishlist_count?: number;

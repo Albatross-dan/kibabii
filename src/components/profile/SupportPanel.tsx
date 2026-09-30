@@ -16,7 +16,7 @@ export default function SupportPanel() {
 
   const faqs = [
     { q: "Is Kibu Market official?", a: "We are a safe student peer-to-peer ecosystem designed to connect buyers and sellers within Kibabii University. Always read safety recommendations before transactions!" },
-    { q: "How does the Escrow wallet protect money?", a: "When you pay via escrow, Kibu Market holds the cash securely. Funds are only released to the seller after you confirm delivery of the item at Gate A, Hall 1, or public hostels." },
+    { q: "How should I safely transact on campus?", a: "Always arrange to meet sellers or buyers in public, well-lit campus areas (e.g. Student Center, Library foyer, or Main Gate). Inspect the item in person before making payment." },
     { q: "How can I earn a verified student badge?", a: "Go to Section 5 (Verification & Badges) and provide your *.ac.ke regular student email or register student card scan for review. The administrative committee verifies details instantly under 10 minutes!" },
     { q: "Can non-students sell on Kibabii Market?", a: "We support specialized Verified Store profiles for established local shops around major campus gates (Gate A, B, Soweto areas). Apply for official store status in Settings." }
   ];
@@ -24,7 +24,10 @@ export default function SupportPanel() {
   const handleSendReport = (e: React.FormEvent) => {
     e.preventDefault();
     if (!reportText.trim()) return;
-    toast.success(`📩 Report dispatched successfully! Support Desk has logged Ticket: #${Math.floor(Math.random() * 89999 + 10000)}.`);
+    const msg = encodeURIComponent(`Hello Kibu Market Support,\n\nCategory: ${reportCategory}\nIssue: ${reportText.trim()}`);
+    const whatsappUrl = `https://wa.me/254712345678?text=${msg}`;
+    window.open(whatsappUrl, '_blank');
+    toast.success('Opening WhatsApp to contact the Support Desk directly');
     setReportText('');
   };
 
@@ -92,7 +95,7 @@ export default function SupportPanel() {
                 <Input 
                   id="spText"
                   required 
-                  placeholder="e.g. Cynthia is unresponsive with study desk after I paid escrow..." 
+                  placeholder="e.g. Inquired about textbook listing with seller but received no response..." 
                   value={reportText} 
                   onChange={(e) => setReportText(e.target.value)}
                   className="h-10 text-xs rounded-xl"
@@ -100,8 +103,8 @@ export default function SupportPanel() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full h-9 text-xs bg-slate-900 border text-white font-black rounded-xl hover:bg-slate-800">
-              Dispatched Safety Report
+            <Button type="submit" className="w-full h-9 text-xs bg-emerald-600 border border-emerald-700 text-white font-black rounded-xl hover:bg-emerald-700 cursor-pointer">
+              Send to WhatsApp Support Desk
             </Button>
           </form>
         </Card>
@@ -113,18 +116,20 @@ export default function SupportPanel() {
             
             <div className="space-y-2 text-xs text-slate-600 font-bold">
               <button 
-                onClick={() => toast.success('Dispatching WhatsApp support link: +254 712 345 678')}
-                className="w-full p-3 bg-emerald-50 text-emerald-800 rounded-xl hover:bg-emerald-100/80 transition-all flex items-center justify-between font-extrabold text-left"
+                type="button"
+                onClick={() => window.open('https://wa.me/254712345678', '_blank')}
+                className="w-full p-3 bg-emerald-50 text-emerald-800 rounded-xl hover:bg-emerald-100/80 transition-all flex items-center justify-between font-extrabold text-left cursor-pointer"
               >
-                <span className="flex items-center gap-2"><MessageSquare className="h-4.5 w-4.5 text-emerald-500" /> WhatsApp Hotline</span>
+                <span className="flex items-center gap-2"><MessageSquare className="h-4.5 w-4.5 text-emerald-500" /> WhatsApp Support Line</span>
                 <ChevronRight className="h-4 w-4 opacity-60" />
               </button>
 
               <button 
-                onClick={() => toast.success('Dialing student call line: 0712-34-56-78')}
-                className="w-full p-3 bg-sky-50 text-sky-800 rounded-xl hover:bg-sky-100/80 transition-all flex items-center justify-between font-extrabold text-left"
+                type="button"
+                onClick={() => window.open('tel:+254712345678')}
+                className="w-full p-3 bg-sky-50 text-sky-800 rounded-xl hover:bg-sky-100/80 transition-all flex items-center justify-between font-extrabold text-left cursor-pointer"
               >
-                <span className="flex items-center gap-2"><PhoneCall className="h-4.5 w-4.5 text-sky-500" /> Hotline Call Support</span>
+                <span className="flex items-center gap-2"><PhoneCall className="h-4.5 w-4.5 text-sky-500" /> Helpline Calling Line</span>
                 <ChevronRight className="h-4 w-4 opacity-60" />
               </button>
             </div>

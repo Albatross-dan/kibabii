@@ -5,6 +5,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 interface AccountBadgeProps {
   emailVerified?: boolean;
+  isVerified?: boolean;
+  hasStore?: boolean;
   studentVerificationStatus?: 'unverified' | 'pending' | 'approved' | 'rejected';
   storeVerificationStatus?: 'unverified' | 'pending' | 'approved' | 'rejected';
   isTopSeller?: boolean;
@@ -15,6 +17,8 @@ interface AccountBadgeProps {
 
 export default function AccountBadge({
   emailVerified = false,
+  isVerified = false,
+  hasStore = false,
   studentVerificationStatus = 'unverified',
   storeVerificationStatus = 'unverified',
   isTopSeller = false,
@@ -26,13 +30,10 @@ export default function AccountBadge({
   const iconSize = size === 'sm' ? 'h-3 w-3' : size === 'md' ? 'h-4 w-4' : 'h-5 w-5';
   const badgeTextClass = size === 'sm' ? 'text-[9px] px-1.5 py-0.5' : size === 'md' ? 'text-[11px] px-2 py-1' : 'text-xs px-2.5 py-1.5';
 
-  const isStudent = role === 'student' || role === 'both';
-  const isStore = role === 'store' || role === 'shop_owner';
-
   const badgesToRender = [];
 
-  // 1. Shop Owner badge (when role is shop_owner or store)
-  if (role === 'shop_owner' || role === 'store') {
+  // 1. Shop Owner badge — ONLY if a real store row exists in stores table!
+  if (hasStore && (role === 'shop_owner' || role === 'store')) {
     badgesToRender.push({
       id: 'shop_owner',
       label: 'Shop Owner',
@@ -42,7 +43,26 @@ export default function AccountBadge({
     });
   }
 
-  // 2. Top Seller badge
+  // 2. Verified Account badge — strictly gated on profiles.is_verified = true
+  if (isVerified) {
+    badgesToRender.push({
+      id: 'verified_profile',
+      label: 'Verified',
+      color: 'bg-emerald-600 text-white hover:bg-emerald-700 border-none font-black',
+      icon: <CheckCircle2 className={`${iconSize} fill-emerald-100`} />,
+      description: 'Officially verified account on Kibabii Market'
+    });
+  } else if (hasStore && storeVerificationStatus === 'approved') {
+    badgesToRender.push({
+      id: 'verified_store',
+      label: 'Verified Store',
+      color: 'bg-emerald-600 text-white hover:bg-emerald-700 border-none font-black',
+      icon: <ShieldCheck className={`${iconSize} fill-emerald-100`} />,
+      description: 'Officially verified campus store'
+    });
+  }
+
+  // 3. Top Seller badge
   if (isTopSeller) {
     badgesToRender.push({
       id: 'top_seller',
@@ -53,26 +73,7 @@ export default function AccountBadge({
     });
   }
 
-  // 3. Verified Student / Store badge
-  if (studentVerificationStatus === 'approved') {
-    badgesToRender.push({
-      id: 'verified_student',
-      label: 'Verified Student',
-      color: 'bg-emerald-600 text-white hover:bg-emerald-700 border-none font-black',
-      icon: <CheckCircle2 className={`${iconSize} fill-emerald-100`} />,
-      description: 'Officially verified Kibabii University Comrade'
-    });
-  } else if (storeVerificationStatus === 'approved') {
-    badgesToRender.push({
-      id: 'verified_store',
-      label: 'Verified Store',
-      color: 'bg-emerald-600 text-white hover:bg-emerald-700 border-none font-black',
-      icon: <ShieldCheck className={`${iconSize} fill-emerald-100`} />,
-      description: 'Officially verified Kibabii University Store'
-    });
-  }
-
-  // 3. Email Verified badge (render if email verified, but don't clutter unless asked or specifically showing stats)
+  // 4. Email Verified badge (strictly tied to auth.users email confirmation)
   if (emailVerified && (showAll || badgesToRender.length === 0)) {
     badgesToRender.push({
       id: 'email_verified',

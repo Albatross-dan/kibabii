@@ -133,10 +133,10 @@ export default function MyMarketplacePanel({
   ]);
   const [typedMsg, setTypedMsg] = useState('');
 
-  // Interactive Purchases State (including ESCROW and Courier placeholder tracking)
+  // Order and Purchases State
   const [purchases, setPurchases] = useState([
-    { id: 'pur-1', name: 'Original Calculus T-Book', price: 'KSh 1,500', seller: 'StudyHub Bookstore', status: 'Delivered', escrowStatus: 'Released', deliveryType: 'Hostel Dropoff' },
-    { id: 'pur-2', name: 'Cyberpunk Gaming Mouse', price: 'KSh 2,800', seller: 'TechnoGamer', status: 'In Transit', escrowStatus: 'Held in Escrow', deliveryType: 'Gate A Pickup Point' }
+    { id: 'pur-1', name: 'Original Calculus T-Book', price: 'KSh 1,500', seller: 'StudyHub Bookstore', status: 'Delivered', deliveryType: 'Hostel Dropoff' },
+    { id: 'pur-2', name: 'Cyberpunk Gaming Mouse', price: 'KSh 2,800', seller: 'TechnoGamer', status: 'In Transit', deliveryType: 'Gate A Pickup Point' }
   ]);
 
   // Interactive Orders State
@@ -145,7 +145,7 @@ export default function MyMarketplacePanel({
     { id: 'ord-102', item: 'Bedside Night Table', customer: 'Kelvin Kibet', amount: 'KSh 1,800', status: 'Completed' }
   ]);
 
-  // Reviews simulated lists
+  // Reviews list
   const [reviewsList, setReviewsList] = useState([
     { id: 'rev-1', author: 'Dan Kiptoo', rating: 5, date: 'June 10, 2026', comment: 'Very swift transaction. He met me at the library as promised and the hotplate works great!' },
     { id: 'rev-2', author: 'Jane Wanjiku', rating: 4, date: 'May 28, 2026', comment: 'Excellent study guides. A bit highlighted but highly useful.' }
@@ -171,7 +171,7 @@ export default function MyMarketplacePanel({
     const typed = typedMsg;
     setTypedMsg('');
 
-    // Trigger simulated bot responder!
+    // Trigger responder notice
     setTimeout(() => {
       setChats(prevChats => prevChats.map(room => {
         if (room.id === selectedRoomId) {
@@ -179,7 +179,7 @@ export default function MyMarketplacePanel({
             ...room,
             messages: [
               ...room.messages,
-              { text: `Thanks comrades! I received: "${typed}". Let me check details and review real soon.`, sender: 'customer', time: 'Just now' }
+              { text: `Thanks comrade! I received: "${typed}". Let me check details and reply soon.`, sender: 'customer', time: 'Just now' }
             ]
           };
         }
@@ -189,9 +189,9 @@ export default function MyMarketplacePanel({
     }, 1500);
   };
 
-  const handleEscrowRelease = (id: string) => {
-    setPurchases(purchases.map(p => p.id === id ? { ...p, escrowStatus: 'Released', status: 'Delivered' } : p));
-    toast.success('🔒 Escrow funds successfully released to the seller!');
+  const handleMarkReceived = (id: string) => {
+    setPurchases(purchases.map(p => p.id === id ? { ...p, status: 'Delivered' } : p));
+    toast.success('Order marked as received!');
   };
 
   const handleMarkOrderShipped = (id: string) => {
@@ -211,7 +211,7 @@ export default function MyMarketplacePanel({
     };
     setReviewsList([item, ...reviewsList]);
     setNewComment('');
-    toast.success('⭐ Simulated review added successfully!');
+    toast.success('⭐ Review submitted successfully!');
   };
 
   const selectedRoom = chats.find(r => r.id === selectedRoomId);
@@ -459,7 +459,7 @@ export default function MyMarketplacePanel({
                         <h5 className="text-xs font-black text-secondary leading-none">{selectedRoom.sender}</h5>
                         <span className="text-[10px] font-bold text-slate-400">Trading item: {selectedRoom.product}</span>
                       </div>
-                      <span className="text-[9px] uppercase font-black bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-100/50">Simulated Chat</span>
+                      <span className="text-[9px] uppercase font-black bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-100/50">Inbox Chat</span>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-2 space-y-2.5 my-2 max-h-[180px]">
@@ -501,13 +501,13 @@ export default function MyMarketplacePanel({
             </div>
           )}
 
-          {/* 4. PURCHASES SUB TAB (ESCROW COMPLIANT) */}
+          {/* 4. PURCHASES SUB TAB */}
           {activeSubTab === 'purchases' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center pb-2 border-b">
-                <h4 className="font-extrabold text-slate-950 text-sm">Escrow Wallet Protection Purchases ({purchases.length})</h4>
+                <h4 className="font-extrabold text-slate-950 text-sm">Purchase History ({purchases.length})</h4>
                 <div className="flex items-center gap-1.5 text-[10px] uppercase font-black bg-blue-50 text-blue-700 border px-2.5 py-1 rounded">
-                  <ShieldCheck className="h-3.5 w-3.5 text-blue-500" /> Secure Escrow
+                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" /> Active & Delivered
                 </div>
               </div>
 
@@ -521,42 +521,31 @@ export default function MyMarketplacePanel({
                         <p className="text-xs font-bold text-slate-800">{p.price}</p>
                       </div>
                       <div className="text-right space-y-1">
-                        <span className="text-[9px] uppercase font-black bg-slate-100 text-slate-600 px-2 py-0.5 rounded border block text-center">
-                          {p.status}
-                        </span>
                         <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded border block text-center ${
-                          p.escrowStatus === 'Released' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-150 animate-pulse'
+                          p.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-150 animate-pulse'
                         }`}>
-                          {p.escrowStatus}
+                          {p.status}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-500 pt-2 border-t">
                       <span className="flex items-center gap-1">
-                        <Truck className="h-3.5 w-3.5 text-slate-400" /> Mode: {p.deliveryType}
+                        <Truck className="h-3.5 w-3.5 text-slate-400" /> Handover: {p.deliveryType}
                       </span>
-                      {p.escrowStatus === 'Held in Escrow' ? (
+                      {p.status === 'In Transit' ? (
                         <div className="flex gap-2">
                           <Button 
                             size="xs" 
-                            variant="destructive" 
-                            onClick={() => toast.warning('Dispute filed with safety panel! Escrow holds preserved.')}
-                            className="text-[10px] h-7 font-bold rounded-lg"
+                            onClick={() => handleMarkReceived(p.id)}
+                            className="text-[10px] h-7 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer"
                           >
-                            File Dispute
-                          </Button>
-                          <Button 
-                            size="xs" 
-                            onClick={() => handleEscrowRelease(p.id)}
-                            className="text-[10px] h-7 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg"
-                          >
-                            Release Funds
+                            Confirm Received
                           </Button>
                         </div>
                       ) : (
                         <span className="text-[10px] text-emerald-600 font-extrabold flex items-center gap-1">
-                          ✓ Completed & Closed
+                          ✓ Completed & Received
                         </span>
                       )}
                     </div>
@@ -618,7 +607,7 @@ export default function MyMarketplacePanel({
           {activeSubTab === 'reviews' && (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               
-              {/* Form submit simulated review */}
+              {/* Form submit review */}
               <form onSubmit={handleAddReviewSim} className="md:col-span-5 border-r pr-5 space-y-3 text-left">
                 <span className="text-xs font-extrabold uppercase text-slate-400 tracking-wider block">Add Test Review</span>
                 
@@ -651,7 +640,7 @@ export default function MyMarketplacePanel({
                 </div>
 
                 <Button type="submit" className="w-full h-9 bg-primary text-white font-bold rounded-xl text-xs shadow-sm">
-                  Simulate Posting Review
+                  Post Review
                 </Button>
               </form>
 

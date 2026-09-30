@@ -332,12 +332,12 @@ export default function SettingsPanel({
   return (
     <div className="space-y-6 text-left">
       
-      {/* Simulation Toggle panel */}
+      {/* Section Visibility Toggle panel */}
       <Card className="border border-indigo-150 bg-indigo-55 bg-indigo-50/10 p-4 sm:p-5 rounded-2xl space-y-3">
         <h5 className="font-extrabold text-[11px] text-indigo-700 uppercase tracking-widest flex items-center gap-1.5">
-          <Sparkles className="h-4.5 w-4.5 text-indigo-500" /> DASHBOARD LIVE SIMULATION SETTINGS
+          <Sparkles className="h-4.5 w-4.5 text-indigo-500" /> DASHBOARD SECTION VISIBILITY SETTINGS
         </h5>
-        <p className="text-[10px] text-slate-400 font-semibold">Toggle optional vertical sections on-the-fly to test student, service providers, or organizers profile layouts live:</p>
+        <p className="text-[10px] text-slate-400 font-semibold">Toggle optional vertical sections to configure student, service provider, or event organizer views:</p>
         
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs font-black">
           <button 
@@ -573,11 +573,11 @@ export default function SettingsPanel({
                     onChange={(e) => setWhatsapp(e.target.value)}
                     className="h-10 text-xs bg-white rounded-xl" 
                   />
-                  <p className="text-[10px] text-slate-400">Our courier escrow and delivery alerts utilize WhatsApp push indicators directly.</p>
+                  <p className="text-[10px] text-slate-400">Receive WhatsApp notifications for direct student chat inquiries and buyer orders.</p>
                 </div>
 
                 <Button type="submit" className="h-9 text-xs bg-emerald-600 font-bold text-white rounded-xl hover:bg-emerald-700">
-                  Sync WhatsApp delivery Alerts
+                  Save WhatsApp Number
                 </Button>
               </form>
             </div>
@@ -657,7 +657,7 @@ export default function SettingsPanel({
                 />
                 <div>
                   <span className="font-black block text-slate-900 leading-tight">Instant WhatsApp Alerts</span>
-                  <span className="text-[10px] text-slate-400 font-medium">Get immediate WhatsApp notifications for student chats and courier bids.</span>
+                  <span className="text-[10px] text-slate-400 font-medium">Get immediate WhatsApp notifications for student chats and listing inquiries.</span>
                 </div>
               </label>
 
@@ -667,13 +667,13 @@ export default function SettingsPanel({
                   checked={notifEmail}
                   onChange={(e) => {
                     setNotifEmail(e.target.checked);
-                    toast.success(`Email weekly indexes ${e.target.checked ? 'ENABLED ✓' : 'DISABLED ✗'}`);
+                    toast.success(`Email updates ${e.target.checked ? 'ENABLED ✓' : 'DISABLED ✗'}`);
                   }}
                   className="h-4 w-4 rounded text-primary focus:ring-primary/20" 
                 />
                 <div>
-                  <span className="font-black block text-slate-900 leading-tight">Weekly Ledger Audit Digests</span>
-                  <span className="text-[10px] text-slate-400 font-medium font-semibold">Get email statements of listings count, active ratings, and escrow details.</span>
+                  <span className="font-black block text-slate-900 leading-tight">Weekly Summary Digests</span>
+                  <span className="text-[10px] text-slate-400 font-medium font-semibold">Get email statements of listings count, active ratings, and account security notices.</span>
                 </div>
               </label>
             </div>
@@ -750,18 +750,18 @@ export default function SettingsPanel({
                   checked={twoFactor}
                   onChange={(e) => {
                     setTwoFactor(e.target.checked);
-                    toast.success(`Two-Factor Auth simulation: ${e.target.checked ? 'ENABLED ✓' : 'DISABLED ✗'}`);
+                    toast.success(`Two-Factor Auth: ${e.target.checked ? 'ENABLED ✓' : 'DISABLED ✗'}`);
                   }}
                   className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500" 
                 />
                 <div>
-                  <span className="font-black block text-slate-900 leading-tight">Enable Escrow 2FA Token Check</span>
-                  <span className="text-[10px] text-slate-400 font-medium">Verify release of escrow funds via a secure alert check prior to transfer.</span>
+                  <span className="font-black block text-slate-900 leading-tight">Enable Two-Factor Authentication (2FA)</span>
+                  <span className="text-[10px] text-slate-400 font-medium">Verify account access via extra security prompt on new devices.</span>
                 </div>
               </label>
 
               <div className="p-3.5 bg-emerald-50 text-emerald-800 rounded-xl text-[10px] leading-relaxed">
-                ✓ **Kibu Privacy Shield**: Account addresses and hostel coordinate maps are fully encrypted. Public chats only resolve usernames to preserve absolute peer anonymity.
+                ✓ **Privacy Protection**: Account phone numbers and coordinate details are only shared according to your preferences. Public listings preserve peer privacy.
               </div>
             </div>
           )}
