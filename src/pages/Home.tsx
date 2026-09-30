@@ -1228,7 +1228,7 @@ export default function Home() {
         </div>
 
         {/* Search Bar - Exact Kibu Mall Style */}
-        <div ref={homeSearchContainerRef} className="relative w-full">
+        <div id="tour-home-search-bar" data-tour="search-bar" ref={homeSearchContainerRef} className="relative w-full">
           <form 
             onSubmit={(e) => {
               e.preventDefault();

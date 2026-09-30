@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Search, 
@@ -48,6 +48,12 @@ export default function Navbar() {
   const cartCount = cartItems.length;
   const unreadCount = useMessageStore((state) => state.unreadCount);
 
+  useEffect(() => {
+    const handleOpenSell = () => setIsSellOpen(true);
+    window.addEventListener('kibumall-open-sell', handleOpenSell);
+    return () => window.removeEventListener('kibumall-open-sell', handleOpenSell);
+  }, []);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -81,7 +87,7 @@ export default function Navbar() {
           </Link>
 
           {/* Search Bar - Desktop Only */}
-          <form onSubmit={handleSearch} className="flex-1 max-w-2xl relative mx-4 lg:mx-8 hidden md:block">
+          <form id="tour-search-bar" data-tour="search-bar" onSubmit={handleSearch} className="flex-1 max-w-2xl relative mx-4 lg:mx-8 hidden md:block">
             <div className="w-full h-11 rounded-full bg-[#F0F1F2] hover:bg-[#EAEBED] focus-within:bg-[#EAEBED] transition-colors flex items-center px-4">
               <button
                 type="submit"
@@ -142,6 +148,8 @@ export default function Navbar() {
 
             {/* Create Listing (➕ Sell) Button */}
             <Button
+              id="tour-sell-button"
+              data-tour="sell-button"
               onClick={() => setIsSellOpen(true)}
               className="bg-primary hover:bg-primary/95 text-white font-bold h-8 sm:h-10 px-3 sm:px-5 rounded-full shadow-md shadow-primary/25 flex items-center gap-1 sm:gap-1.5 transition-all transform hover:scale-[1.03] active:scale-95 text-xs sm:text-base cursor-pointer shrink-0"
             >
@@ -165,7 +173,11 @@ export default function Navbar() {
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors cursor-pointer outline-none">
+                    <button 
+                      id="tour-account-button"
+                      data-tour="account-button"
+                      className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors cursor-pointer outline-none"
+                    >
                       <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-xs text-secondary overflow-hidden">
                         {profile?.avatar_url ? (
                           <img src={profile.avatar_url} alt="User" className="w-full h-full object-cover" />

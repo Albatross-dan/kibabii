@@ -113,6 +113,7 @@ export const WhatsAppListingButton: React.FC<WhatsAppListingButtonProps> = ({
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
+        data-tour="whatsapp-button"
         className={`p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors inline-flex items-center justify-center cursor-pointer ${className}`}
         title="Chat on WhatsApp"
         aria-label="Chat on WhatsApp"
@@ -129,6 +130,7 @@ export const WhatsAppListingButton: React.FC<WhatsAppListingButtonProps> = ({
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
+        data-tour="whatsapp-button"
         className={`inline-flex items-center gap-1.5 px-3 py-1 bg-[#25D366] hover:bg-[#20BD5A] text-white text-xs font-bold rounded-full shadow-sm transition-transform active:scale-95 cursor-pointer ${className}`}
         title="Contact Seller on WhatsApp"
       >
@@ -144,6 +146,7 @@ export const WhatsAppListingButton: React.FC<WhatsAppListingButtonProps> = ({
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
+      data-tour="whatsapp-button"
       className={`inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white font-bold rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer ${
         size === 'sm' ? 'h-9 px-3 text-xs' : size === 'lg' ? 'h-12 px-5 text-base' : 'h-11 px-4 text-sm'
       } ${className}`}

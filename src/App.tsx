@@ -26,6 +26,7 @@ import Search from '@/pages/Search';
 import CategoryProducts from '@/pages/CategoryProducts';
 import Categories from '@/pages/Categories';
 import StoreDetail from '@/pages/StoreDetail';
+import HowItWorks from '@/pages/HowItWorks';
 
 // Dashboard Pages
 import Dashboard from '@/pages/dashboard/Dashboard';
@@ -55,6 +56,7 @@ import ProductVerification from '@/pages/admin/ProductVerification';
 // PWA Utilities
 import { OfflineIndicator } from '@/components/pwa/OfflineIndicator';
 import { PWAUpdateToast } from '@/components/pwa/PWAUpdateToast';
+import OnboardingTour from '@/components/onboarding/OnboardingTour';
 
 export default function App() {
   useEffect(() => {
@@ -70,6 +72,7 @@ export default function App() {
       <BrowserRouter>
         <OfflineIndicator />
         <PWAUpdateToast />
+        <OnboardingTour />
         <Routes>
           {/* Public/Main Routes with Layout */}
           <Route element={<Layout />}>
@@ -82,6 +85,7 @@ export default function App() {
             <Route path="/categories" element={<Categories />} />
             <Route path="/search" element={<Search />} />
             <Route path="/category/:slug" element={<CategoryProducts />} />
+            <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/store/:storeId" element={<StoreDetail />} />
             <Route path="/stores/:storeId" element={<StoreDetail />} />
             <Route path="/profile" element={<Profile />} />

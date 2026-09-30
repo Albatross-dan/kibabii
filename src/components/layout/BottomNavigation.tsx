@@ -64,10 +64,13 @@ export default function BottomNavigation() {
             const Icon = item.icon;
 
             // Regular item style
+            const isAccount = item.path === '/profile';
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                id={isAccount ? "tour-account-bottom-nav" : undefined}
+                data-tour={isAccount ? "account-button" : undefined}
                 className="relative flex flex-col items-center justify-center flex-1 py-1 h-12 transition-all active:scale-95 group"
               >
                 <div className="relative p-1">
