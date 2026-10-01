@@ -28,7 +28,7 @@ import {
   getCategoryBadgeColor, 
   getCategoryDescription 
 } from '@/lib/categoryIcons';
-import { WhatsAppListingButton } from '@/components/common/WhatsAppListingButton';
+import WhatsAppCardButton from '@/components/common/WhatsAppCardButton';
 
 export interface CategoryItem {
   id: string;
@@ -863,22 +863,32 @@ export default function Categories() {
                               </span>
                             )}
 
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleWishlist(item.id);
-                              }}
-                              className={`absolute top-1.5 right-1.5 p-1 rounded-md backdrop-blur-xs transition-all cursor-pointer ${
-                                isWishlisted 
-                                  ? 'bg-rose-500 text-white shadow-xs' 
-                                  : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
-                              }`}
-                              title="Wishlist"
-                              aria-label="Wishlist toggle"
-                            >
-                              <Heart size={13} fill={isWishlisted ? 'currentColor' : 'none'} />
-                            </button>
+                            {/* Top-right Actions: WhatsApp & Wishlist */}
+                            <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1">
+                              <WhatsAppCardButton
+                                listingId={item.id}
+                                sellerId={item.owner_id || (item as any).seller_id}
+                                title={item.title}
+                                imageUrl={imageUrl}
+                                price={(item as any).price || priceDisplay}
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleWishlist(item.id);
+                                }}
+                                className={`p-1.5 rounded-md backdrop-blur-xs transition-all cursor-pointer ${
+                                  isWishlisted 
+                                    ? 'bg-rose-500 text-white shadow-xs' 
+                                    : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
+                                }`}
+                                title="Wishlist"
+                                aria-label="Wishlist toggle"
+                              >
+                                <Heart size={13} fill={isWishlisted ? 'currentColor' : 'none'} />
+                              </button>
+                            </div>
                           </div>
 
                           <div className="p-2 sm:p-2.5 flex-1 flex flex-col justify-between space-y-1">
@@ -902,16 +912,15 @@ export default function Categories() {
                             </div>
 
                             <div className="pt-1 border-t border-gray-50 flex items-center justify-between text-[9px] text-gray-500">
-                              <span className="flex items-center gap-0.5 truncate max-w-[90px]">
+                              <span className="flex items-center gap-0.5 truncate max-w-[110px]">
                                 <MapPin size={10} className="text-primary shrink-0" />
                                 <span className="truncate">{item.location || 'Campus'}</span>
                               </span>
 
-                              <WhatsAppListingButton
-                                listingId={item.id}
-                                title={item.title}
-                                variant="icon"
-                              />
+                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 group-hover:bg-slate-200/80 transition-colors shrink-0 shadow-2xs">
+                                View
+                                <ChevronRight className="w-2.5 h-2.5 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                              </span>
                             </div>
                           </div>
                         </div>

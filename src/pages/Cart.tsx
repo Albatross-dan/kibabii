@@ -190,10 +190,9 @@ export default function Cart() {
               </Button>
 
               <div className="pt-2 text-center">
-                 <p className="text-xs text-muted-foreground">Accepted Payments</p>
-                 <div className="flex justify-center gap-2 mt-2 grayscale opacity-50">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/1/15/M-PESA_LOGO-01.svg" className="h-6" alt="M-Pesa" />
-                 </div>
+                 <p className="text-xs text-muted-foreground font-semibold flex items-center justify-center gap-1.5">
+                   💬 Direct WhatsApp & In-App Chat Marketplace
+                 </p>
               </div>
             </CardContent>
           </Card>

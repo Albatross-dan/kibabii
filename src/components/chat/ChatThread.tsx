@@ -45,6 +45,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { messagingService } from '@/services/messagingService';
+import { isValidImageFile, isHeicImage, prepareImageForUpload } from '@/lib/imageUtils';
 import { 
   Message, 
   EnrichedConversation, 
@@ -404,23 +405,31 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
   }, [messages, imagePreviewUrl]);
 
   // Handle image file selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    let file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file (PNG, JPG, WEBP).');
+    if (!isValidImageFile(file)) {
+      toast.error('Please select a valid image file (PNG, JPG, WEBP, HEIC).');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB.');
-      return;
-    }
+    try {
+      if (isHeicImage(file)) {
+        file = await prepareImageForUpload(file);
+      }
 
-    setSelectedImage(file);
-    const url = URL.createObjectURL(file);
-    setImagePreviewUrl(url);
+      if (file.size > 8 * 1024 * 1024) {
+        toast.error('Image size must be less than 8MB.');
+        return;
+      }
+
+      setSelectedImage(file);
+      const url = URL.createObjectURL(file);
+      setImagePreviewUrl(url);
+    } catch (err) {
+      console.error('Failed to prepare chat attachment:', err);
+    }
   };
 
   const removeSelectedImage = () => {
@@ -818,13 +827,13 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
         className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/60 overscroll-contain"
         style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
       >
-        {/* Safety / Escrow Advisory Banner */}
+        {/* Safety Advisory Banner */}
         <div className="max-w-md mx-auto bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2.5 shadow-2xs">
           <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div>
             <p className="font-bold text-amber-950">Campus Safety Reminder</p>
             <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
-              Always inspect physical items in public campus areas (e.g. Student Centre, Gate B, or Library foyer). Use KibabiiMart Escrow for secure payment protection.
+              Always inspect physical items in public campus areas (e.g. Student Centre, Gate B, or Library foyer). Arrange payment in person only after inspecting the item.
             </p>
           </div>
         </div>
@@ -1066,7 +1075,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
             type="file" 
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept="image/png, image/jpeg, image/webp"
+            accept="image/*, .heic, .heif"
             className="hidden" 
           />
 

@@ -60,8 +60,8 @@ const INITIAL_NOTIFICATIONS: CampusNotification[] = [
   },
   {
     id: 'n-4',
-    title: '📦 Order Confirmation',
-    message: 'Your Escrow Payment of KSh 6,800 has been securely logged. The funds are held safely until you confirm delivery.',
+    title: '📦 Meetup Request Placed',
+    message: 'Your meetup request of KSh 6,800 has been created. Coordinate handover and payment in person via WhatsApp or Chat.',
     type: 'order',
     timestamp: '2 days ago',
     isRead: true,

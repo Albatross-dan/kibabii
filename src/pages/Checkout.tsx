@@ -6,17 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Loader2, Phone } from 'lucide-react';
+import { CheckCircle2, Loader2, Phone, MessageCircle } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { items, total, clearCart } = useCartStore();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentStep, setPaymentStep] = useState<'form' | 'stk' | 'success'>('form');
+  const [isSuccess, setIsSuccess] = useState(false);
   const [phone, setPhone] = useState('');
   const [fullName, setFullName] = useState('');
   const [hostel, setHostel] = useState('');
@@ -24,20 +23,18 @@ export default function Checkout() {
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone) {
-      toast.error('Please enter your M-Pesa phone number');
+      toast.error('Please enter your contact phone number');
       return;
     }
     
     setIsProcessing(true);
-    setPaymentStep('stk');
     
-    // Simulate STK Push
     setTimeout(() => {
       setIsProcessing(false);
-      setPaymentStep('success');
-      toast.success('M-Pesa payment authorized successfully!');
+      setIsSuccess(true);
+      toast.success('Order request placed successfully!');
       
-      // Save order details to local storage for real state interaction
+      // Save order details to local storage
       const newOrder = {
         id: `KIB-${Math.floor(1000 + Math.random() * 9000)}`,
         items: [...items],
@@ -45,7 +42,7 @@ export default function Checkout() {
         fullName: fullName || 'Daniel Kamau',
         hostel: hostel || 'Grace Hostel, Room 4B',
         phone: phone,
-        status: 'held_in_escrow',
+        status: 'pending',
         otpCode: Math.floor(1000 + Math.random() * 9000).toString(),
         timestamp: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       };
@@ -55,12 +52,12 @@ export default function Checkout() {
         localOrders.unshift(newOrder); // Add to beginning
         localStorage.setItem('kb-orders', JSON.stringify(localOrders));
         
-        // Push a nice notification
+        // Push notification
         const notifications = JSON.parse(localStorage.getItem('kb-notifications') || '[]');
         notifications.unshift({
           id: `n-${Date.now()}`,
-          title: `🛍️ Order ${newOrder.id} Created`,
-          message: `Your Escrow order of ${items.map(i => i.title).join(', ')} total ${formatPrice(total)} is held safely. Delivery code: ${newOrder.otpCode}`,
+          title: `🛍️ Order Request ${newOrder.id} Created`,
+          message: `Your order for ${items.map(i => i.title).join(', ')} total ${formatPrice(total)} was created. Coordinate meetup and handover directly with the seller via WhatsApp or Chat.`,
           type: 'order',
           timestamp: 'Just now',
           isRead: false,
@@ -71,51 +68,40 @@ export default function Checkout() {
         console.error('Error writing order storage:', err);
       }
 
+      clearCart();
       setTimeout(() => {
-        clearCart();
         navigate('/orders');
-      }, 3000);
-    }, 5000);
+      }, 1500);
+    }, 700);
   };
 
-  if (items.length === 0 && paymentStep !== 'success') {
-    return <div className="text-center py-20">Your cart is empty. Please add items before checking out.</div>;
+  if (items.length === 0 && !isSuccess) {
+    return <div className="text-center py-20 font-medium text-slate-500">Your cart is empty. Please add items before checking out.</div>;
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <h1 className="text-3xl font-black">Checkout</h1>
+    <div className="max-w-4xl mx-auto space-y-8 text-left py-4 sm:py-6">
+      <div>
+        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Checkout & Meetup Request</h1>
+        <p className="text-sm text-muted-foreground mt-1 font-medium">Coordinate handover and direct payment with sellers on campus</p>
+      </div>
 
-      {paymentStep === 'success' ? (
+      {isSuccess ? (
         <div className="text-center py-20 space-y-6">
           <div className="flex justify-center">
             <div className="p-6 bg-green-100 rounded-full">
               <CheckCircle2 className="h-16 w-16 text-green-600" />
             </div>
           </div>
-          <h2 className="text-2xl font-bold">Order Placed Successfully!</h2>
-          <p className="text-muted-foreground">Redirecting to your orders...</p>
+          <h2 className="text-2xl font-bold">Order Request Placed Successfully!</h2>
+          <p className="text-muted-foreground font-medium">Redirecting to your orders...</p>
         </div>
-      ) : paymentStep === 'stk' ? (
-        <Card className="rounded-3xl border shadow-xl py-12">
-          <CardContent className="flex flex-col items-center text-center space-y-6">
-            <Loader2 className="h-12 w-12 text-primary animate-spin" />
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold">Check your phone</h2>
-              <p className="text-muted-foreground">
-                We've sent an M-Pesa STK push prompt to <b>{phone}</b>.<br />
-                Enter your PIN to complete the payment of <b>{formatPrice(total)}</b>.
-              </p>
-            </div>
-            <Button variant="ghost" onClick={() => setPaymentStep('form')}>Cancel & Try Again</Button>
-          </CardContent>
-        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
             <Card className="rounded-2xl border">
               <CardHeader>
-                <CardTitle>Delivery Information</CardTitle>
+                <CardTitle className="text-base font-bold">Delivery & Handover Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -139,7 +125,7 @@ export default function Checkout() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Contact Phone</Label>
+                  <Label htmlFor="phone">Contact Phone (for WhatsApp & Calls)</Label>
                   <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07XX XXX XXX" required />
                 </div>
               </CardContent>
@@ -147,32 +133,33 @@ export default function Checkout() {
 
             <Card className="rounded-2xl border">
               <CardHeader>
-                <CardTitle>Payment Method</CardTitle>
+                <CardTitle className="text-base font-bold">Payment & Coordination</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <RadioGroup defaultValue="mpesa">
-                  <div className="flex items-center space-x-3 p-4 border rounded-xl bg-muted/20">
-                    <RadioGroupItem value="mpesa" id="mpesa" />
-                    <Label htmlFor="mpesa" className="flex items-center gap-3 cursor-pointer">
-                      <img src="https://upload.wikimedia.org/wikipedia/commons/1/15/M-PESA_LOGO-01.svg" className="h-8" alt="M-Pesa" />
-                      <span className="font-bold">M-Pesa Express (STK Push)</span>
-                    </Label>
+                <div className="p-4 border border-emerald-200 rounded-xl bg-emerald-50/50 space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <MessageCircle className="h-5 w-5 text-emerald-600 shrink-0" />
+                    <span className="font-extrabold text-sm text-emerald-950">Campus Meetup & Direct Payment</span>
                   </div>
-                </RadioGroup>
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                    Transactions are coordinated directly via WhatsApp and in-app chat. Inspect your items upon campus meetup and pay directly upon handover.
+                  </p>
+                </div>
                 
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="mpesa-phone">M-Pesa Phone Number</Label>
+                  <Label htmlFor="contact-phone">Confirm Contact Number</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                      id="mpesa-phone" 
+                      id="contact-phone" 
                       value={phone} 
                       onChange={(e) => setPhone(e.target.value)} 
                       placeholder="07XX XXX XXX" 
                       className="pl-10 h-12"
+                      required
                     />
                   </div>
-                  <p className="text-[10px] text-muted-foreground">Enter the number you will use to pay</p>
+                  <p className="text-[10px] text-muted-foreground">Sellers will use this line to connect on WhatsApp</p>
                 </div>
               </CardContent>
             </Card>
@@ -181,42 +168,44 @@ export default function Checkout() {
           <div className="space-y-6">
             <Card className="rounded-2xl border bg-white sticky top-32">
               <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
+                <CardTitle className="text-base font-bold">Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                  {items.map(item => (
+                <div className="space-y-3">
+                  {items.map((item) => (
                     <div key={item.id} className="flex justify-between items-center text-sm">
-                      <div className="flex gap-2 items-center">
-                         <span className="font-bold">{item.quantity}x</span>
-                         <span className="truncate max-w-[150px]">{item.title}</span>
+                      <div className="flex items-center gap-2 overflow-hidden pr-2">
+                        <span className="font-medium truncate max-w-[180px]">{item.title}</span>
+                        <span className="text-muted-foreground text-xs font-bold">x{item.quantity}</span>
                       </div>
-                      <span className="font-mono">{formatPrice(item.price * item.quantity)}</span>
+                      <span className="font-mono font-bold shrink-0">{formatPrice(item.price * item.quantity)}</span>
                     </div>
                   ))}
                 </div>
+
                 <Separator />
-                <div className="flex justify-between text-muted-foreground">
+                
+                <div className="flex justify-between text-muted-foreground text-sm">
                   <span>Subtotal</span>
-                  <span className="font-mono">{formatPrice(total)}</span>
+                  <span className="font-mono font-semibold">{formatPrice(total)}</span>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Delivery</span>
-                  <span className="text-green-600 font-bold">FREE</span>
+                <div className="flex justify-between text-muted-foreground text-sm">
+                  <span>Campus Delivery</span>
+                  <span className="text-emerald-600 font-bold text-xs">DIRECT COORDINATION</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between items-end">
-                  <span className="text-lg font-bold">Total</span>
-                  <span className="text-3xl font-black text-primary font-mono">{formatPrice(total)}</span>
+                  <span className="text-base font-bold">Total</span>
+                  <span className="text-2xl sm:text-3xl font-black text-primary font-mono">{formatPrice(total)}</span>
                 </div>
                 
                 <Button 
                   onClick={handlePayment} 
                   disabled={isProcessing}
-                  className="w-full h-14 bg-primary text-white font-bold text-lg mt-4 shadow-lg shadow-primary/20"
+                  className="w-full h-13 bg-primary hover:bg-primary/95 text-white font-bold text-base mt-4 shadow-lg shadow-primary/20 cursor-pointer rounded-xl"
                 >
                   {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                  Pay {formatPrice(total)}
+                  Confirm Order Request ({formatPrice(total)})
                 </Button>
               </CardContent>
             </Card>

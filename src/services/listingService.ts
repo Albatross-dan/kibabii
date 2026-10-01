@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { isValidUuid, toValidUuid } from '@/lib/uuid';
 import { compressAndResizeBannerImage, uploadBannerWithRetry } from '@/lib/bannerUploadUtils';
+import { isHeicImage, prepareImageForUpload } from '@/lib/imageUtils';
 
 export type ListingType = 'product' | 'accommodation' | 'service' | 'lost_found' | 'event';
 export type ListingStatus = 'draft' | 'pending_review' | 'active' | 'sold' | 'expired' | 'archived' | 'rejected' | 'paused';
@@ -291,8 +292,19 @@ export const listingService = {
     file: File | Blob,
     position?: number
   ): Promise<string> {
-    const cleanFilename = filename.replace(/[^a-zA-Z0-9.]/g, '_');
+    let cleanFilename = filename.replace(/[^a-zA-Z0-9.]/g, '_');
     
+    // Auto-convert HEIC file if present
+    if (isHeicImage(file, filename)) {
+      try {
+        const fileObj = file instanceof File ? file : new File([file], filename || 'image.heic', { type: file.type || 'image/heic' });
+        file = await prepareImageForUpload(fileObj);
+        cleanFilename = cleanFilename.replace(/\.(heic|heif)$/i, '.jpg');
+      } catch (cErr) {
+        console.warn('HEIC preparation in uploadListingImage notice:', cErr);
+      }
+    }
+
     // Get the real Supabase authenticated user ID if available, otherwise fallback to userId.
     const { data: { session } } = await supabase.auth.getSession();
     const actualUserId = session?.user?.id || userId;
@@ -978,14 +990,26 @@ export const listingService = {
     if (imageStr.startsWith('data:image/')) {
       try {
         const parts = imageStr.split(';base64,');
-        const contentType = parts[0]?.split(':')[1] || 'image/jpeg';
+        let contentType = parts[0]?.split(':')[1] || 'image/jpeg';
         const raw = window.atob(parts[1] || '');
         const uInt8Array = new Uint8Array(raw.length);
         for (let i = 0; i < raw.length; ++i) {
           uInt8Array[i] = raw.charCodeAt(i);
         }
-        const file = new Blob([uInt8Array], { type: contentType });
-        const ext = contentType.split('/')[1] || 'jpeg';
+        let file: Blob = new Blob([uInt8Array], { type: contentType });
+        let ext = contentType.split('/')[1] || 'jpeg';
+
+        if (contentType.includes('heic') || contentType.includes('heif')) {
+          try {
+            const converted = await prepareImageForUpload(new File([file], 'image.heic', { type: contentType }));
+            file = converted;
+            contentType = 'image/jpeg';
+            ext = 'jpg';
+          } catch (cErr) {
+            console.warn('HEIC blob conversion in uploadImageToBucket:', cErr);
+          }
+        }
+
         const fileName = `img_${Date.now()}_${index}.${ext}`;
         const filePath = `${userId}/${entityId}/${fileName}`;
         const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, { contentType });

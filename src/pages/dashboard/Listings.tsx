@@ -667,9 +667,9 @@ export default function Listings() {
             </RadioGroup>
 
             <div className="p-4 bg-slate-50 rounded-2xl space-y-1 text-xs">
-              <span className="font-extrabold text-slate-400 uppercase text-[9.5px]">M-PESA checkout simulator</span>
+              <span className="font-extrabold text-slate-400 uppercase text-[9.5px]">Listing Boost Promotion</span>
               <p className="text-slate-500 leading-relaxed">
-                Upgrades will automatically trigger Safaricom STK Push simulation on phone contact associated with profile!
+                Featured listings gain top rank on the homepage and category feeds. Contact campus support directly on WhatsApp for custom banner placements!
               </p>
             </div>
           </div>
@@ -678,8 +678,8 @@ export default function Listings() {
             <Button variant="ghost" className="font-bold rounded-xl" onClick={() => setIsPromoOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handlePromoteSubmit} className="bg-primary text-white font-extrabold h-11 px-6 rounded-xl shadow-md shadow-primary/20">
-              ✓ Pay & Activate Boost
+            <Button onClick={handlePromoteSubmit} className="bg-primary text-white font-extrabold h-11 px-6 rounded-xl shadow-md shadow-primary/20 cursor-pointer">
+              ✓ Activate Boost
             </Button>
           </div>
         </DialogContent>

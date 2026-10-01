@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Star, ShoppingCart, Heart, MapPin, ShieldCheck, Store as StoreIcon } from 'lucide-react';
+import { Star, ShoppingCart, Heart, MapPin, ShieldCheck, Store as StoreIcon, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatPrice } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { useWishlistStore } from '@/store/wishlistStore';
 import { toast } from 'sonner';
 import { Product } from '@/services/productService';
 import AccountBadge from '@/components/products/AccountBadge';
+import WhatsAppCardButton from '@/components/common/WhatsAppCardButton';
 
 interface ProductCardProps {
   product: Product;
@@ -86,18 +87,29 @@ export default function ProductCard({ product }: ProductCardProps) {
           ))}
         </div>
 
-        <button 
-          type="button"
-          aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
-          className={`absolute top-1.5 right-1.5 z-10 p-1.5 bg-white/90 backdrop-blur-md rounded-md transition-all shadow-xs hover:scale-105 cursor-pointer ${
-            isWishlisted 
-              ? 'text-rose-500 opacity-100' 
-              : 'text-gray-500 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 hover:text-rose-500 hover:opacity-100'
-          }`}
-          onClick={handleWishlistToggle}
-        >
-          <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
-        </button>
+        {/* Top-right Actions: WhatsApp & Wishlist */}
+        <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1">
+          <WhatsAppCardButton 
+            listingId={listingId}
+            productId={product.id}
+            sellerId={product.seller_id || (product as any).owner_id}
+            title={product.title}
+            imageUrl={coverImage}
+            price={product.price}
+          />
+          <button 
+            type="button"
+            aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
+            className={`p-1.5 bg-white/90 backdrop-blur-md rounded-md transition-all shadow-xs hover:scale-105 cursor-pointer ${
+              isWishlisted 
+                ? 'text-rose-500 opacity-100' 
+                : 'text-gray-500 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 hover:text-rose-500 hover:opacity-100'
+            }`}
+            onClick={handleWishlistToggle}
+          >
+            <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
+          </button>
+        </div>
 
         {/* Image */}
         <div className="aspect-square overflow-hidden relative bg-slate-50 flex items-center justify-center p-2">
@@ -202,29 +214,22 @@ export default function ProductCard({ product }: ProductCardProps) {
           {/* Footer Info */}
           {!isLostFound && (
             <div className="flex items-center justify-between pt-1.5 border-t border-gray-50">
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0 pr-1">
                  <div className="flex items-baseline gap-1">
                    <span className="text-xs sm:text-sm font-black text-primary leading-tight">
                       {formatPrice(product.price).replace('KES', 'KSh').trim()}
                    </span>
                  </div>
                  {product.original_price && (
-                   <span className="text-[9px] text-gray-400 line-through font-bold">
+                   <span className="text-[9px] text-gray-400 line-through font-bold truncate">
                       {formatPrice(product.original_price)}
                    </span>
                  )}
               </div>
               
-              {isProductListing && (
-                <button 
-                  onClick={handleAddToCart}
-                  disabled={isAdding}
-                  aria-label="Add to cart"
-                  className="p-1.5 bg-secondary text-white rounded-md hover:bg-primary transition-all cursor-pointer disabled:opacity-50"
-                >
-                  <ShoppingCart className="h-3.5 w-3.5" />
-                </button>
-              )}
+              <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] sm:text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 group-hover:bg-slate-200/80 transition-colors shrink-0 shadow-2xs">
+                View <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-slate-700 transition-colors" />
+              </span>
             </div>
           )}
         </CardContent>

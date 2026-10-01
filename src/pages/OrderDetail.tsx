@@ -97,7 +97,7 @@ export default function OrderDetail() {
         </Button>
         <div className="space-y-1">
           <h1 className="text-3xl font-black text-slate-900">Tax Invoice Receipt</h1>
-          <p className="text-xs text-muted-foreground font-semibold">Order ID: #{order.id} &bull; Safe M-Pesa Escrow Ledger</p>
+          <p className="text-xs text-muted-foreground font-semibold">Order ID: #{order.id} &bull; Campus Order Ledger</p>
         </div>
       </div>
 
@@ -117,7 +117,7 @@ export default function OrderDetail() {
                     ? 'bg-red-105 text-red-700 bg-red-50' 
                     : 'bg-amber-100 text-amber-800 animate-pulse'
               }>
-                {order.status === 'completed' ? 'RELEASED & CLOSED' : order.status === 'cancelled' ? 'REFUNDED' : '🔒 ACTIVE ESCROW'}
+                {order.status === 'completed' ? 'RECEIVED & CLOSED' : order.status === 'cancelled' ? 'CANCELLED' : '⏳ PENDING HANDOVER'}
               </Badge>
             </CardHeader>
             <CardContent className="p-5 sm:p-6 space-y-6">
@@ -151,12 +151,12 @@ export default function OrderDetail() {
                   <span className="font-semibold text-green-600">FREE COMRADE DISPENSE</span>
                 </div>
                 <div className="flex justify-between items-center text-slate-500 font-bold">
-                  <span>M-Pesa Escrow Handling Protection Fee</span>
-                  <span className="font-semibold text-indigo-600 block bg-indigo-50 px-2 py-0.5 rounded-[6px]">KSH 0.00 GUARANTEED</span>
+                  <span>Campus Direct Handover</span>
+                  <span className="font-semibold text-indigo-600 block bg-indigo-50 px-2 py-0.5 rounded-[6px]">FREE COORDINATION</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between items-baseline pt-2">
-                  <span className="font-black text-slate-900 text-sm">Grand Total Checkout Paid</span>
+                  <span className="font-black text-slate-900 text-sm">Grand Total Amount</span>
                   <span className="font-mono text-xl font-black text-secondary">{formatPrice(order.total)}</span>
                 </div>
               </div>
@@ -181,7 +181,7 @@ export default function OrderDetail() {
               </div>
 
               <div className="space-y-1 sm:col-span-2 pt-1 border-t">
-                <span className="text-[9px] uppercase font-black text-slate-400 block tracking-wider">M-Pesa Verification Mobile</span>
+                <span className="text-[9px] uppercase font-black text-slate-400 block tracking-wider">Contact Phone</span>
                 <p className="text-slate-850 font-bold flex items-center gap-2 text-slate-800">
                   <Phone className="h-3.5 w-3.5 text-slate-400" /> {order.phone}
                 </p>
@@ -204,8 +204,8 @@ export default function OrderDetail() {
                   <div className="w-0.5 h-10 bg-emerald-300"></div>
                 </div>
                 <div>
-                  <h4 className="font-black text-slate-900">Payment Escrow Locked</h4>
-                  <p className="text-slate-450 font-medium">STK Push triggered. KSh {order.total} held securely under M-Pesa account reserve.</p>
+                  <h4 className="font-black text-slate-900">Order Request Created</h4>
+                  <p className="text-slate-450 font-medium">Direct meetup coordinated via WhatsApp / in-app chat.</p>
                 </div>
               </div>
 

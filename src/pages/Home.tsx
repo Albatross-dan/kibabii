@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 import CategoryListingsPage from '@/components/CategoryListingsPage';
 import { useWishlistStore } from '@/store/wishlistStore';
 import { listingService, SearchSuggestion } from '@/services/listingService';
+import WhatsAppCardButton from '@/components/common/WhatsAppCardButton';
 
 // Self-contained countdown timer that only re-renders its own badge
 const FlashSaleCountdown = memo(() => {
@@ -561,21 +562,32 @@ export default function Home() {
               -{discount}%
             </span>
           )}
-          <button
-            type="button"
-            aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleWishlist(listing.id);
-            }}
-            className={`absolute top-1.5 right-1.5 z-10 p-1.5 rounded-md backdrop-blur-md transition-all shadow-xs cursor-pointer ${
-              isWishlisted
-                ? 'bg-rose-500 text-white shadow-xs'
-                : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
-            }`}
-          >
-            <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-white text-white' : ''}`} />
-          </button>
+          {/* Top-right Actions: WhatsApp & Wishlist */}
+          <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1">
+            <WhatsAppCardButton
+              listingId={listing.id}
+              productId={listing.product_id || listing.id}
+              sellerId={listing.seller_id || listing.owner_id}
+              title={listing.title}
+              imageUrl={imageUrl}
+              price={price}
+            />
+            <button
+              type="button"
+              aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleWishlist(listing.id);
+              }}
+              className={`p-1.5 rounded-md backdrop-blur-md transition-all shadow-xs cursor-pointer ${
+                isWishlisted
+                  ? 'bg-rose-500 text-white shadow-xs'
+                  : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
+              }`}
+            >
+              <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-white text-white' : ''}`} />
+            </button>
+          </div>
         </div>
 
         <div className="p-2 sm:p-2.5 flex-1 flex flex-col justify-between space-y-1.5 text-left">
@@ -584,15 +596,21 @@ export default function Home() {
           </h4>
           
           <div>
-            <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="font-mono font-black text-red-600 text-xs sm:text-sm">
-                KSh {price.toLocaleString('en-KE')}
-              </span>
-              {originalPrice && (
-                <span className="font-mono text-[10px] text-gray-400 line-through">
-                  KSh {originalPrice.toLocaleString('en-KE')}
+            <div className="flex items-center justify-between gap-1">
+              <div>
+                <span className="font-mono font-black text-red-600 text-xs sm:text-sm">
+                  KSh {price.toLocaleString('en-KE')}
                 </span>
-              )}
+                {originalPrice && (
+                  <span className="font-mono text-[10px] text-gray-400 line-through block">
+                    KSh {originalPrice.toLocaleString('en-KE')}
+                  </span>
+                )}
+              </div>
+              <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] sm:text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 group-hover:bg-slate-200/80 transition-colors shrink-0 shadow-2xs">
+                View
+                <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-slate-700 transition-colors" />
+              </span>
             </div>
 
             {quantity !== null && quantity > 0 && (
@@ -663,21 +681,31 @@ export default function Home() {
               {isAvailable ? 'Available' : 'Occupied'}
             </span>
           </div>
-          <button
-            type="button"
-            aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleWishlist(listing.id);
-            }}
-            className={`absolute top-1.5 right-1.5 z-10 p-1.5 rounded-md backdrop-blur-md transition-all shadow-xs cursor-pointer ${
-              isWishlisted
-                ? 'bg-rose-500 text-white shadow-xs'
-                : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
-            }`}
-          >
-            <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-white text-white' : ''}`} />
-          </button>
+          {/* Top-right Actions: WhatsApp & Wishlist */}
+          <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1">
+            <WhatsAppCardButton
+              listingId={listing.id}
+              sellerId={listing.seller_id || listing.owner_id}
+              title={listing.title}
+              imageUrl={imageUrl}
+              price={acc.price_per_month ? Number(acc.price_per_month) : undefined}
+            />
+            <button
+              type="button"
+              aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleWishlist(listing.id);
+              }}
+              className={`p-1.5 rounded-md backdrop-blur-md transition-all shadow-xs cursor-pointer ${
+                isWishlisted
+                  ? 'bg-rose-500 text-white shadow-xs'
+                  : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
+              }`}
+            >
+              <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-white text-white' : ''}`} />
+            </button>
+          </div>
         </div>
 
         <div className="p-2 sm:p-2.5 flex-grow flex flex-col justify-between space-y-1">
@@ -687,9 +715,15 @@ export default function Home() {
           <p className="text-[10px] sm:text-[11px] text-gray-500 font-medium truncate leading-tight">
             {typeLabel}{acc.distance_from_campus_km ? ` · ${acc.distance_from_campus_km}km` : ''}
           </p>
-          <p className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm pt-0.5 leading-none">
-            KSh {Number(acc.price_per_month).toLocaleString('en-KE')}/mo
-          </p>
+          <div className="pt-1 flex items-center justify-between border-t border-gray-50 mt-0.5">
+            <span className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm leading-none">
+              KSh {Number(acc.price_per_month).toLocaleString('en-KE')}/mo
+            </span>
+            <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] sm:text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 group-hover:bg-slate-200/80 transition-colors shrink-0 shadow-2xs">
+              View
+              <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-slate-700 transition-colors" />
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -767,21 +801,32 @@ export default function Home() {
             )}
           </div>
 
-          <button
-            type="button"
-            aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleWishlist(id);
-            }}
-            className={`absolute top-1.5 right-1.5 z-10 p-1.5 rounded-md backdrop-blur-md transition-all shadow-xs cursor-pointer ${
-              isWishlisted
-                ? 'bg-rose-500 text-white shadow-xs'
-                : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
-            }`}
-          >
-            <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-white text-white' : ''}`} />
-          </button>
+          {/* Top-right Actions: WhatsApp & Wishlist */}
+          <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1">
+            <WhatsAppCardButton
+              listingId={id}
+              productId={prod.id}
+              sellerId={prod.seller_id || item.seller_id || item.owner_id}
+              title={title}
+              imageUrl={imageUrl}
+              price={price}
+            />
+            <button
+              type="button"
+              aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleWishlist(id);
+              }}
+              className={`p-1.5 rounded-md backdrop-blur-md transition-all shadow-xs cursor-pointer ${
+                isWishlisted
+                  ? 'bg-rose-500 text-white shadow-xs'
+                  : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
+              }`}
+            >
+              <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-white text-white' : ''}`} />
+            </button>
+          </div>
         </div>
 
         <div className="p-2 sm:p-2.5 flex-grow flex flex-col justify-between space-y-1">
@@ -791,15 +836,21 @@ export default function Home() {
           <p className="text-[10px] sm:text-[11px] text-gray-500 font-medium truncate leading-tight">
             {isStore ? 'Verified Campus Store' : 'Student Seller'}
           </p>
-          <div className="pt-0.5">
-            <span className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm leading-none block">
-              KSh {price.toLocaleString('en-KE')}
-            </span>
-            {originalPrice && originalPrice > price && (
-              <span className="font-mono text-[10px] text-gray-400 line-through leading-none mt-0.5 block">
-                KSh {originalPrice.toLocaleString('en-KE')}
+          <div className="pt-1 flex items-center justify-between border-t border-gray-50 mt-0.5">
+            <div className="min-w-0 pr-1">
+              <span className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm leading-none block">
+                KSh {price.toLocaleString('en-KE')}
               </span>
-            )}
+              {originalPrice && originalPrice > price && (
+                <span className="font-mono text-[10px] text-gray-400 line-through leading-none mt-0.5 block truncate">
+                  KSh {originalPrice.toLocaleString('en-KE')}
+                </span>
+              )}
+            </div>
+            <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] sm:text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 group-hover:bg-slate-200/80 transition-colors shrink-0 shadow-2xs">
+              View
+              <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-slate-700 transition-colors" />
+            </span>
           </div>
         </div>
       </div>
@@ -854,21 +905,31 @@ export default function Home() {
               Service
             </span>
           </div>
-          <button
-            type="button"
-            aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleWishlist(service.id);
-            }}
-            className={`absolute top-1.5 right-1.5 z-10 p-1.5 rounded-md backdrop-blur-md transition-all shadow-xs cursor-pointer ${
-              isWishlisted
-                ? 'bg-rose-500 text-white shadow-xs'
-                : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
-            }`}
-          >
-            <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-white text-white' : ''}`} />
-          </button>
+          {/* Top-right Actions: WhatsApp & Wishlist */}
+          <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1">
+            <WhatsAppCardButton
+              listingId={service.listing_id || service.id}
+              sellerId={service.seller_id || service.owner_id}
+              title={service.title || 'Campus Service'}
+              imageUrl={imageUrl}
+              price={price}
+            />
+            <button
+              type="button"
+              aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleWishlist(service.id);
+              }}
+              className={`p-1.5 rounded-md backdrop-blur-md transition-all shadow-xs cursor-pointer ${
+                isWishlisted
+                  ? 'bg-rose-500 text-white shadow-xs'
+                  : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
+              }`}
+            >
+              <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-white text-white' : ''}`} />
+            </button>
+          </div>
         </div>
 
         <div className="p-2 sm:p-2.5 flex-grow flex flex-col justify-between space-y-1">
@@ -878,9 +939,15 @@ export default function Home() {
           <p className="text-[10px] sm:text-[11px] text-gray-500 font-medium truncate leading-tight">
             {service.service_type || 'Campus Service'}
           </p>
-          <p className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm pt-0.5 leading-none">
-            {price > 0 ? `From KSh ${price.toLocaleString('en-KE')}` : 'Inquire for price'}
-          </p>
+          <div className="pt-1 flex items-center justify-between border-t border-gray-50 mt-0.5">
+            <span className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm leading-none">
+              {price > 0 ? `From KSh ${price.toLocaleString('en-KE')}` : 'Inquire for price'}
+            </span>
+            <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] sm:text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 group-hover:bg-slate-200/80 transition-colors shrink-0 shadow-2xs">
+              View
+              <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-slate-700 transition-colors" />
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -930,21 +997,31 @@ export default function Home() {
               {isFree ? 'Free' : 'Event'}
             </span>
           </div>
-          <button
-            type="button"
-            aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleWishlist(event.id);
-            }}
-            className={`absolute top-1.5 right-1.5 z-10 p-1.5 rounded-md backdrop-blur-md transition-all shadow-xs cursor-pointer ${
-              isWishlisted
-                ? 'bg-rose-500 text-white shadow-xs'
-                : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
-            }`}
-          >
-            <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-white text-white' : ''}`} />
-          </button>
+          {/* Top-right Actions: WhatsApp & Wishlist */}
+          <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1">
+            <WhatsAppCardButton
+              listingId={event.listing_id || event.id}
+              sellerId={event.seller_id || event.owner_id}
+              title={event.title || 'Campus Event'}
+              imageUrl={imageUrl}
+              price={event.ticket_price || ev?.ticket_price || 0}
+            />
+            <button
+              type="button"
+              aria-label={isWishlisted ? "Remove from favorites" : "Save to favorites"}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleWishlist(event.id);
+              }}
+              className={`p-1.5 rounded-md backdrop-blur-md transition-all shadow-xs cursor-pointer ${
+                isWishlisted
+                  ? 'bg-rose-500 text-white shadow-xs'
+                  : 'bg-white/80 hover:bg-white text-gray-600 hover:text-rose-500'
+              }`}
+            >
+              <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-white text-white' : ''}`} />
+            </button>
+          </div>
         </div>
 
         <div className="p-2 sm:p-2.5 flex-grow flex flex-col justify-between space-y-1">
@@ -954,9 +1031,15 @@ export default function Home() {
           <p className="text-[10px] sm:text-[11px] text-gray-500 font-medium truncate leading-tight">
             {event.event_date || ev.event_date || event.venue || 'Upcoming Event'}
           </p>
-          <p className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm pt-0.5 leading-none">
-            {isFree || price === 0 ? 'Free Entry' : `KSh ${price.toLocaleString('en-KE')}`}
-          </p>
+          <div className="pt-1 flex items-center justify-between border-t border-gray-50 mt-0.5">
+            <span className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm leading-none">
+              {isFree || price === 0 ? 'Free Entry' : `KSh ${price.toLocaleString('en-KE')}`}
+            </span>
+            <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] sm:text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 group-hover:bg-slate-200/80 transition-colors shrink-0 shadow-2xs">
+              View
+              <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-slate-700 transition-colors" />
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -1027,15 +1110,22 @@ export default function Home() {
           </div>
 
           <div className="p-2 sm:p-2.5 space-y-1 flex-1 flex flex-col justify-between">
-            <h4 className="font-bold text-slate-800 text-xs leading-snug line-clamp-2 group-hover:text-red-600 transition-colors">
-              {listing.title}
-            </h4>
-            <p className="text-[10px] sm:text-[11px] text-gray-500 font-medium truncate leading-tight">
-              {typeLabel}{acc.distance_from_campus_km ? ` · ${acc.distance_from_campus_km}km` : ''}
-            </p>
-            <p className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm pt-0.5 leading-none">
-              KSh {Number(acc.price_per_month).toLocaleString('en-KE')}/mo
-            </p>
+            <div>
+              <h4 className="font-bold text-slate-800 text-xs leading-snug line-clamp-2 group-hover:text-red-600 transition-colors">
+                {listing.title}
+              </h4>
+              <p className="text-[10px] sm:text-[11px] text-gray-500 font-medium truncate leading-tight mt-0.5">
+                {typeLabel}{acc.distance_from_campus_km ? ` · ${acc.distance_from_campus_km}km` : ''}
+              </p>
+            </div>
+            <div className="pt-1 flex items-center justify-between border-t border-gray-50">
+              <p className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm leading-none">
+                KSh {Number(acc.price_per_month).toLocaleString('en-KE')}/mo
+              </p>
+              <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 group-hover:bg-slate-200/80 transition-colors shrink-0 shadow-2xs">
+                View <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-slate-700 transition-colors" />
+              </span>
+            </div>
           </div>
         </div>
       );
@@ -1104,15 +1194,20 @@ export default function Home() {
             <h4 className="text-xs font-bold text-gray-800 line-clamp-2 leading-snug group-hover:text-red-600 transition-colors">
               {listing.title}
             </h4>
-            <div className="pt-0.5">
-              <span className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm leading-none block">
-                KSh {price.toLocaleString('en-KE')}
-              </span>
-              {originalPrice && (
-                <span className="font-mono text-[10px] text-gray-400 line-through leading-none mt-0.5 block">
-                  KSh {originalPrice.toLocaleString('en-KE')}
+            <div className="pt-1 flex items-center justify-between border-t border-gray-50 mt-0.5">
+              <div className="min-w-0 pr-1">
+                <span className="font-mono font-black text-[#E53E3E] text-xs sm:text-sm leading-none block">
+                  KSh {price.toLocaleString('en-KE')}
                 </span>
-              )}
+                {originalPrice && (
+                  <span className="font-mono text-[10px] text-gray-400 line-through leading-none mt-0.5 block truncate">
+                    KSh {originalPrice.toLocaleString('en-KE')}
+                  </span>
+                )}
+              </div>
+              <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 group-hover:bg-slate-200/80 transition-colors shrink-0 shadow-2xs">
+                View <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-slate-700 transition-colors" />
+              </span>
             </div>
           </div>
         </div>

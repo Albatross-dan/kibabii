@@ -23,7 +23,7 @@ export default function Footer() {
           </div>
           
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-[10px] font-black uppercase tracking-widest">
-            <PWAInstallButton variant="outline" size="sm" className="normal-case text-xs" />
+            <PWAInstallButton variant="yellow" size="sm" className="normal-case text-xs rounded-full" />
             <Link to="/how-it-works?section=safety" className="hover:text-primary transition-colors">Safety Tips</Link>
             <Link to="/how-it-works?section=buy" className="hover:text-primary transition-colors">How to Buy</Link>
             <Link to="/how-it-works?section=sell" className="hover:text-primary transition-colors">Seller Policy</Link>

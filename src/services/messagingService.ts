@@ -11,6 +11,7 @@ import {
 } from '@/types/messaging';
 import { useMessageStore } from '@/store/messageStore';
 import { useAuthStore } from '@/store/authStore';
+import { isHeicImage, prepareImageForUpload } from '@/lib/imageUtils';
 
 interface LocalConversationRecord {
   id: string;
@@ -1027,8 +1028,15 @@ export class MessagingService {
         if (!insertError && newMsg) {
           const attachments: MessageAttachment[] = [];
           if (files && files.length > 0) {
-            for (const file of files) {
+            for (let file of files) {
               try {
+                if (isHeicImage(file)) {
+                  try {
+                    file = await prepareImageForUpload(file);
+                  } catch (cErr) {
+                    console.warn('HEIC attachment conversion notice:', cErr);
+                  }
+                }
                 const cleanFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
                 const path = `${senderId}/${conversationId}/${Date.now()}_${cleanFilename}`;
 

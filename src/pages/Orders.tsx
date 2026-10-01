@@ -95,14 +95,14 @@ export default function Orders() {
   const handleConfirmDelivery = (orderId: string) => {
     const updated = orders.map(o => {
       if (o.id === orderId) {
-        toast.success(`🎉 Escrow funds released to Seller for Order ${o.id}! Transaction completed.`);
+        toast.success(`🎉 Handover confirmed for Order ${o.id}! Meetup completed.`);
         
         // Add a nice notification
         const notifications = JSON.parse(localStorage.getItem('kb-notifications') || '[]');
         notifications.unshift({
           id: `n-${Date.now()}`,
-          title: `💰 Funds Released: ${o.id}`,
-          message: `Escrow payment of ${formatPrice(o.total)} has been successfully wired to the seller because you verified delivery.`,
+          title: `✅ Handover Confirmed: ${o.id}`,
+          message: `Order of ${formatPrice(o.total)} has been verified and completed after in-person campus handover.`,
           type: 'system',
           timestamp: 'Just now',
           isRead: false,
@@ -120,14 +120,14 @@ export default function Orders() {
   const handleCancelOrder = (orderId: string) => {
     const updated = orders.map(o => {
       if (o.id === orderId) {
-        toast.info(`🚫 Order ${o.id} Cancelled. M-Pesa refund processed back to phone ${o.phone}.`);
+        toast.info(`🚫 Order Request ${o.id} Cancelled.`);
         
         // Add a notification
         const notifications = JSON.parse(localStorage.getItem('kb-notifications') || '[]');
         notifications.unshift({
           id: `n-${Date.now()}`,
-          title: `🚫 Order ${o.id} Cancelled`,
-          message: `Your Order ${o.id} has been cancelled, and a refund of ${formatPrice(o.total)} was issued.`,
+          title: `🚫 Order Request ${o.id} Cancelled`,
+          message: `Your Order Request ${o.id} has been cancelled.`,
           type: 'alert',
           timestamp: 'Just now',
           isRead: false,
@@ -145,17 +145,17 @@ export default function Orders() {
   const getStatusBadge = (status: Order['status']) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-250 hover:bg-emerald-100/90 font-black">Received & Released</Badge>;
+        return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-250 hover:bg-emerald-100/90 font-black">Received & Completed</Badge>;
       case 'cancelled':
-        return <Badge variant="destructive" className="font-black bg-red-100 text-red-800 hover:bg-red-100/95 border-red-200">Cancelled & Refunded</Badge>;
+        return <Badge variant="destructive" className="font-black bg-red-100 text-red-800 hover:bg-red-100/95 border-red-200">Cancelled</Badge>;
       default:
-        return <Badge className="bg-amber-100 text-amber-800 border-amber-250 hover:bg-amber-100/90 font-black animate-pulse">🔒 Held in Escrow</Badge>;
+        return <Badge className="bg-amber-100 text-amber-800 border-amber-250 hover:bg-amber-100/90 font-black animate-pulse">⏳ Pending Meetup</Badge>;
     }
   };
 
   const filteredOrders = orders.filter(o => {
     if (currentTab === 'all') return true;
-    if (currentTab === 'escrow') return o.status === 'held_in_escrow';
+    if (currentTab === 'escrow') return o.status === 'held_in_escrow' || (o.status as any) === 'pending';
     if (currentTab === 'completed') return o.status === 'completed';
     return o.status === 'cancelled';
   });
@@ -170,19 +170,19 @@ export default function Orders() {
         </Button>
         <div className="space-y-1">
           <h1 className="text-3xl font-black text-slate-900">Purchase History</h1>
-          <p className="text-xs text-muted-foreground font-semibold">Track your campus purchases, view escrow release codes, and confirm safe handovers.</p>
+          <p className="text-xs text-muted-foreground font-semibold">Track your campus order requests and confirm safe handovers.</p>
         </div>
       </div>
 
-      {/* Escrow Guarantee Banner */}
+      {/* Direct Coordination Banner */}
       <Card className="border border-indigo-150 bg-indigo-50/15 rounded-3xl overflow-hidden p-4 sm:p-5 flex items-start gap-4">
         <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 shrink-0 mt-0.5">
           <ShieldCheck className="h-5 w-5" />
         </div>
         <div className="space-y-1.5 flex-1 text-xs">
-          <h4 className="font-extrabold text-indigo-850 text-sm">Comrade Escrow Protection Activated</h4>
+          <h4 className="font-extrabold text-indigo-850 text-sm">Direct WhatsApp & Campus Coordination</h4>
           <p className="text-slate-600 font-semibold leading-relaxed">
-            Every transaction is guarded by M-Pesa Escrow. The seller is only wired the funds after they hand over the item and you mark the order as <b>Received</b>. If there is any issue, click cancel to receive an instant refund.
+            Transactions on KibuMall are coordinated directly between comrades. Connect with the seller via WhatsApp or in-app chat, agree on a public campus meetup spot, inspect the item in person, and complete your trade safely.
           </p>
         </div>
       </Card>

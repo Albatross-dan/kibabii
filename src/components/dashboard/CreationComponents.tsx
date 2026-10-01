@@ -44,6 +44,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatPrice } from '@/lib/utils';
 import { Listing, Draft, SubscriptionPlan } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import { isValidImageFile, isHeicImage, prepareImageForUpload } from '@/lib/imageUtils';
 
 // 1. LISTING TYPE SELECTOR
 interface TypeSelectorProps {
@@ -212,30 +214,51 @@ export function ImageUploader({ images, onChange, maxFiles = 1 }: UploaderProps)
   const [progress, setProgress] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const file = files[0];
-    if (!file.type.startsWith('image/')) return;
+    let file = files[0];
+    if (!isValidImageFile(file)) {
+      toast.error('Please select a supported image file (JPEG, PNG, WebP, HEIC)');
+      return;
+    }
 
     setUploading(true);
-    setProgress(30);
+    setProgress(20);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        setProgress(100);
-        setTimeout(() => {
-          setUploading(false);
-          onChange([result]);
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        }, 200);
-      } else {
-        setUploading(false);
+    try {
+      if (isHeicImage(file)) {
+        file = await prepareImageForUpload(file);
       }
-    };
-    reader.readAsDataURL(file);
+
+      setProgress(60);
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          setProgress(100);
+          setTimeout(() => {
+            setUploading(false);
+            onChange([result]);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }, 200);
+        } else {
+          setUploading(false);
+        }
+      };
+
+      reader.onerror = () => {
+        toast.error('Failed to read image file');
+        setUploading(false);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Image upload preparation error:', err);
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const simulateUpload = (url: string) => {
@@ -261,7 +284,7 @@ export function ImageUploader({ images, onChange, maxFiles = 1 }: UploaderProps)
         type="file"
         ref={fileInputRef}
         onChange={handleFileInput}
-        accept="image/*"
+        accept="image/*, .heic, .heif"
         className="hidden"
       />
 

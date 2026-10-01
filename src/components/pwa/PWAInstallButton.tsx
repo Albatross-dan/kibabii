@@ -4,13 +4,13 @@ import { usePWAInstall } from '@/hooks/usePWAInstall';
 
 interface PWAInstallButtonProps {
   className?: string;
-  variant?: 'primary' | 'outline' | 'ghost' | 'icon' | 'badge';
+  variant?: 'primary' | 'outline' | 'ghost' | 'icon' | 'badge' | 'yellow';
   size?: 'sm' | 'md';
 }
 
 export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   className = '',
-  variant = 'primary',
+  variant = 'yellow',
   size = 'md'
 }) => {
   const { isInstalled, isIOS, install, hasDeferredPrompt } = usePWAInstall();
@@ -39,15 +39,17 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   const basePadding = size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3.5 py-2 text-xs sm:text-sm';
   const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4';
 
-  let variantStyle = 'bg-primary hover:bg-primary/95 text-white shadow-xs';
-  if (variant === 'outline') {
-    variantStyle = 'border border-slate-200 hover:bg-slate-100 text-slate-800 bg-white shadow-xs';
+  let variantStyle = 'bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-slate-950 font-black border border-yellow-500/50 shadow-sm';
+  if (variant === 'yellow' || variant === 'primary') {
+    variantStyle = 'bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-slate-950 font-black border border-yellow-500/50 shadow-sm';
+  } else if (variant === 'outline') {
+    variantStyle = 'border border-yellow-500 bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black shadow-sm';
   } else if (variant === 'ghost') {
-    variantStyle = 'hover:bg-slate-100 text-slate-700';
+    variantStyle = 'hover:bg-yellow-200 text-slate-950 font-bold';
   } else if (variant === 'icon') {
-    variantStyle = 'p-2 rounded-full hover:bg-slate-100 text-slate-700';
+    variantStyle = 'p-2 rounded-full bg-yellow-400 hover:bg-yellow-300 text-slate-950 shadow-sm border border-yellow-500/50';
   } else if (variant === 'badge') {
-    variantStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2 py-0.5 text-[11px] rounded-full';
+    variantStyle = 'bg-yellow-300 text-slate-950 border border-yellow-500 hover:bg-yellow-400 px-2 py-0.5 text-[11px] rounded-full font-bold shadow-2xs';
   }
 
   return (

@@ -5,6 +5,8 @@
  * 3. User-friendly error messaging for raw HTTP / network drops
  */
 
+import { isHeicImage, prepareImageForUpload } from '@/lib/imageUtils';
+
 export interface CompressedBannerResult {
   blob: Blob;
   contentType: string;
@@ -84,6 +86,16 @@ export async function compressAndResizeBannerImage(
   maxEdge: number = 2048,
   quality: number = 0.9
 ): Promise<CompressedBannerResult> {
+  // Convert iPhone HEIC/HEIF photos to JPEG first
+  if (typeof window !== 'undefined') {
+    if (input instanceof File && isHeicImage(input)) {
+      input = await prepareImageForUpload(input);
+    } else if (input instanceof Blob && isHeicImage(input)) {
+      const file = new File([input], 'banner.heic', { type: input.type || 'image/heic' });
+      input = await prepareImageForUpload(file);
+    }
+  }
+
   // If not running in browser environment, return fallback
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     if (typeof input === 'string') {

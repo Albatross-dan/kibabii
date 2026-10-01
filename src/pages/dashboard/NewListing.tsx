@@ -59,6 +59,7 @@ import { supabase } from '@/lib/supabase';
 import { getCategoryEmoji } from '@/lib/categoryIcons';
 import { isValidUuid, toValidUuid } from '@/lib/uuid';
 import { compressAndResizeBannerImage, isNetworkLevelError } from '@/lib/bannerUploadUtils';
+import { isValidImageFile, isHeicImage, prepareImageForUpload } from '@/lib/imageUtils';
 
 import { AUTHORITATIVE_CATEGORIES, getSubcategoriesForCategory } from '@/constants/categories';
 
@@ -976,57 +977,70 @@ export default function NewListing() {
   };
 
   // Handle local image file selection or direct camera snapshot (Strictly 1 Image)
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
-    if (!file.type.startsWith('image/')) {
-      toast.error(`${file.name} is not a valid image format`);
+    let file = files[0];
+    if (!isValidImageFile(file)) {
+      toast.error(`${file.name} is not a supported image format`);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    if (listingType === 'event') {
-      // Immediately compress/resize banner image client-side to ensure swift transfer
-      compressAndResizeBannerImage(file, 1600, 0.8)
-        .then((res) => {
-          setSelectedBannerFile(res.blob);
-        })
-        .catch(() => {
-          setSelectedBannerFile(file);
-        });
-    }
-
     setUploading(true);
-    setProgress(25);
+    setProgress(15);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        compressImage(result).then((compressed) => {
-          setProgress(100);
-          setTimeout(() => {
-            setUploading(false);
-            setImages([compressed]);
-            toast.success('📸 Photo uploaded successfully!');
-            if (fileInputRef.current) fileInputRef.current.value = '';
-          }, 200);
-        });
-      } else {
+    try {
+      // If image is iPhone HEIC/HEIF, convert client-side to JPEG
+      if (isHeicImage(file)) {
+        file = await prepareImageForUpload(file);
+      }
+
+      if (listingType === 'event') {
+        // Immediately compress/resize banner image client-side to ensure swift transfer
+        compressAndResizeBannerImage(file, 1600, 0.8)
+          .then((res) => {
+            setSelectedBannerFile(res.blob);
+          })
+          .catch(() => {
+            setSelectedBannerFile(file);
+          });
+      }
+
+      setProgress(40);
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          compressImage(result).then((compressed) => {
+            setProgress(100);
+            setTimeout(() => {
+              setUploading(false);
+              setImages([compressed]);
+              toast.success('📸 Photo uploaded successfully!');
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }, 200);
+          });
+        } else {
+          setUploading(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      };
+
+      reader.onerror = () => {
+        toast.error(`Could not read file: ${file.name}`);
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-    };
+      };
 
-    reader.onerror = () => {
-      toast.error(`Could not read file: ${file.name}`);
+      reader.readAsDataURL(file);
+    } catch (conversionErr) {
+      console.error('Error preparing image for upload:', conversionErr);
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleDeletePhoto = (idx: number = 0) => {
@@ -1912,7 +1926,7 @@ export default function NewListing() {
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileChange}
-                  accept="image/*"
+                  accept="image/*, .heic, .heif"
                   className="hidden"
                 />
 

@@ -6,11 +6,13 @@ import {
   Heart, 
   MapPin, 
   SlidersHorizontal,
-  ChevronDown
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useWishlistStore } from '@/store/wishlistStore';
 import { AUTHORITATIVE_CATEGORIES, getSubcategoriesForCategory, getCategoryBySlug } from '@/constants/categories';
+import WhatsAppCardButton from '@/components/common/WhatsAppCardButton';
 
 // Define standard format price helper
 const formatPrice = (price: any) => 
@@ -502,18 +504,27 @@ export default function CategoryListingsPage({ category, onBack }: CategoryListi
                       </span>
                     )}
 
-                    {/* Wishlist Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleWishlist(item.id);
-                      }}
-                      className="absolute top-1.5 right-1.5 p-1 rounded-md bg-white/90 backdrop-blur-xs text-gray-500 hover:text-red-500 shadow-xs transition active:scale-95 cursor-pointer"
-                    >
-                      <Heart 
-                        className={`h-3.5 w-3.5 ${isWish ? 'fill-red-500 text-red-500' : 'stroke-[2.5]'}`} 
+                    {/* Top-right Actions: WhatsApp & Wishlist */}
+                    <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1">
+                      <WhatsAppCardButton
+                        listingId={item.id}
+                        sellerId={item.owner_id || item.seller_id}
+                        title={item.title}
+                        imageUrl={imgUrl || undefined}
+                        price={priceStr}
                       />
-                    </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleWishlist(item.id);
+                        }}
+                        className="p-1 rounded-md bg-white/90 backdrop-blur-xs text-gray-500 hover:text-red-500 shadow-xs transition active:scale-95 cursor-pointer"
+                      >
+                        <Heart 
+                          className={`h-3.5 w-3.5 ${isWish ? 'fill-red-500 text-red-500' : 'stroke-[2.5]'}`} 
+                        />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Details */}
@@ -539,18 +550,16 @@ export default function CategoryListingsPage({ category, onBack }: CategoryListi
                       </h4>
                     </div>
 
-                    {/* Sub Info / Location */}
+                    {/* Sub Info / Location & View CTA */}
                     <div className="pt-1 border-t border-gray-50 flex items-center justify-between text-[9px] text-gray-400 font-bold">
                       <span className="flex items-center gap-0.5 truncate max-w-[90px]">
                         <MapPin className="h-2.5 w-2.5 text-red-500 shrink-0" />
                         <span className="truncate">{item.location || 'Campus'}</span>
                       </span>
 
-                      {item.listing_type === 'product' && item.products?.condition && (
-                        <span className="bg-gray-100 text-gray-600 px-1 py-0.2 rounded text-[8px] uppercase">
-                          {item.products.condition === 'second_hand' ? '2nd hand' : item.products.condition}
-                        </span>
-                      )}
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 transition-colors shrink-0 shadow-2xs">
+                        View <ChevronRight className="w-2.5 h-2.5 text-slate-400" />
+                      </span>
                     </div>
                   </div>
                 </div>

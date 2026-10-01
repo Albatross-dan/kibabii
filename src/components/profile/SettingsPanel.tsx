@@ -18,7 +18,8 @@ import {
   ChevronDown,
   Building,
   Wrench,
-  Calendar
+  Calendar,
+  Camera
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ import { useAuthStore, UserProfile } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp';
 import { toast } from 'sonner';
+import { isValidImageFile, isHeicImage, prepareImageForUpload } from '@/lib/imageUtils';
 
 interface SettingsPanelProps {
   profile: UserProfile;
@@ -511,17 +513,53 @@ export default function SettingsPanel({
           {activeAccordion === 'avatar' && (
             <div className="p-5 border-t bg-stone-50/30 text-xs space-y-4">
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-xl border overflow-hidden shrink-0">
+                <div className="relative h-16 w-16 rounded-xl border overflow-hidden shrink-0 group">
                   <img src={avatar} className="w-full h-full object-cover" alt="" />
                 </div>
                 
-                <div className="flex-1 space-y-1 text-slate-700">
-                  <Label htmlFor="avUrl" className="font-bold block">Avatar URL Address</Label>
+                <div className="flex-1 space-y-2 text-slate-700">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="avUrl" className="font-bold block">Avatar Photo</Label>
+                    <label className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer shadow-2xs transition">
+                      <Camera className="w-3.5 h-3.5 text-primary" />
+                      <span>Upload Photo</span>
+                      <input 
+                        type="file" 
+                        accept="image/*, .heic, .heif"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (!isValidImageFile(file)) {
+                            toast.error('Please select an image (JPEG, PNG, HEIC)');
+                            return;
+                          }
+                          try {
+                            let processedFile = file;
+                            if (isHeicImage(file)) {
+                              processedFile = await prepareImageForUpload(file);
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const res = ev.target?.result as string;
+                              if (res) {
+                                setAvatar(res);
+                                toast.success('📸 Photo selected!');
+                              }
+                            };
+                            reader.readAsDataURL(processedFile);
+                          } catch (err) {
+                            console.error('Avatar upload error:', err);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                   <Input 
                     id="avUrl"
                     value={avatar}
                     onChange={(e) => setAvatar(e.target.value)}
-                    placeholder="Provide image web URL links..."
+                    placeholder="Or provide image URL link..."
                     className="h-9 text-xs bg-white rounded-lg"
                   />
                 </div>

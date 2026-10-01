@@ -202,7 +202,7 @@ export default function HowItWorks() {
               </div>
               <div className="text-[11px] text-slate-400 font-semibold bg-white p-2.5 rounded-xl border border-slate-100 flex items-center gap-2">
                 <span className="text-emerald-500 font-bold">✓</span>
-                <span>Pay via M-Pesa or cash upon inspection</span>
+                <span>Pay in person upon inspection</span>
               </div>
             </div>
           </div>

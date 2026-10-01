@@ -141,9 +141,9 @@ export default function Navbar() {
 
             {/* PWA Install Button */}
             <PWAInstallButton 
-              variant="outline" 
+              variant="yellow" 
               size="sm" 
-              className="flex items-center rounded-full text-xs font-bold border-gray-200 hover:border-gray-300 text-slate-800 bg-white hover:bg-slate-50 transition-all shrink-0" 
+              className="flex items-center rounded-full text-xs font-bold bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-slate-950 border border-yellow-500/50 shadow-sm transition-all shrink-0 cursor-pointer" 
             />
 
             {/* Create Listing (➕ Sell) Button */}

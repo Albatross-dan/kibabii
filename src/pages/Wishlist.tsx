@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
+import WhatsAppCardButton from '@/components/common/WhatsAppCardButton';
 
 interface EnrichedWishlistItem extends WishlistListingRow {
   image_url: string;
@@ -384,15 +385,25 @@ export default function Wishlist() {
                     </Badge>
                   </div>
 
-                  {/* Remove Button */}
-                  <button 
-                    type="button"
-                    onClick={() => handleRemoveFromWishlist(item.listing_id, item.title)}
-                    aria-label={`Remove ${item.title} from favorites`}
-                    className="absolute top-3 right-3 p-2 rounded-xl backdrop-blur-md bg-white/90 hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-100 shadow-xs transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {/* Action Buttons */}
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                    <WhatsAppCardButton
+                      listingId={item.listing_id}
+                      sellerId={(item as any).seller_id || (item as any).owner_id}
+                      title={item.title}
+                      imageUrl={item.image_url}
+                      price={item.price}
+                      className="p-2 rounded-xl"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => handleRemoveFromWishlist(item.listing_id, item.title)}
+                      aria-label={`Remove ${item.title} from favorites`}
+                      className="p-2 rounded-xl backdrop-blur-md bg-white/90 hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-100 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Content */}

@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { compressAndResizeBannerImage } from '@/lib/bannerUploadUtils';
+import { isValidImageFile, isHeicImage, prepareImageForUpload } from '@/lib/imageUtils';
 
 interface RegistrationFormProps {
   type: 'student' | 'store';
@@ -49,17 +50,21 @@ export function RegistrationForm({ type, onSubmit, isLoading }: RegistrationForm
   const bannerInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select a valid image file (JPEG, PNG, WebP)');
+    if (!isValidImageFile(file)) {
+      toast.error('Please select a valid image file (JPEG, PNG, WebP, HEIC)');
       if (bannerInputRef.current) bannerInputRef.current.value = '';
       return;
     }
 
     setIsCompressingBanner(true);
     try {
+      if (isHeicImage(file)) {
+        file = await prepareImageForUpload(file);
+      }
+
       const compressed = await compressAndResizeBannerImage(file, 1600, 0.8);
       setBannerFile(compressed.blob);
       const previewUrl = URL.createObjectURL(compressed.blob);
@@ -285,7 +290,7 @@ export function RegistrationForm({ type, onSubmit, isLoading }: RegistrationForm
               ref={bannerInputRef}
               id="storeBanner"
               type="file"
-              accept="image/*"
+              accept="image/*, .heic, .heif"
               className="hidden"
               onChange={handleBannerChange}
             />
