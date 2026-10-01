@@ -34,6 +34,8 @@ import {
   getListingShareUrl, 
   fetchSellerWhatsAppNumber,
   buildWhatsAppLink,
+  loadImageAsPngBlob,
+  copyImageToClipboard,
   type ListingShareDetails 
 } from '@/lib/whatsapp';
 import ReviewsSection from '@/components/reviews/ReviewsSection';
@@ -597,7 +599,7 @@ export default function ProductDetail() {
   const isOwner = Boolean(currentUserId && sellerId && currentUserId === sellerId);
   const isInactive = Boolean(listing && listing.status && listing.status !== 'active');
 
-  const handleWhatsAppClick = () => {
+  const handleWhatsAppClick = async () => {
     const targetLink = whatsappLink || shareDetails?.whatsapp_link;
     if (!targetLink) return;
 
@@ -606,13 +608,30 @@ export default function ProductDetail() {
     const priceDisplay = shareDetails?.price_display || (product ? `KES ${product.price}` : 'Price on request');
 
     const activeImageOrShareImage = activeImage || shareDetails?.image_url || (allImages && allImages[0]) || '';
+    let imageCopied = false;
+    if (activeImageOrShareImage) {
+      try {
+        const blob = await loadImageAsPngBlob(activeImageOrShareImage);
+        if (blob) {
+          imageCopied = await copyImageToClipboard(blob);
+        }
+      } catch (clipErr) {
+        console.warn('Image clipboard copy failed in ProductDetail:', clipErr);
+      }
+    }
+
     const clickUrl = buildListingWhatsAppUrl({
       listing_id: activeListingId,
       title,
       price_display: priceDisplay,
-      whatsapp_link: targetLink,
-      image_url: activeImageOrShareImage
+      whatsapp_link: targetLink
     });
+
+    if (imageCopied) {
+      toast.success('📸 Real photo copied to clipboard! Tap Paste (Ctrl+V) in WhatsApp to attach the image.', {
+        duration: 6000
+      });
+    }
 
     window.open(clickUrl, '_blank', 'noopener,noreferrer');
   };

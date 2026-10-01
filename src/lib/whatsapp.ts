@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { toast } from 'sonner';
 
 /**
  * Normalizes and validates a phone or WhatsApp number into E.164 format.
@@ -138,9 +139,104 @@ export function getListingShareUrl(listingId: string): string {
 }
 
 /**
- * Builds the clickUrl for WhatsApp according to the contract:
- * const message = `Hi, I'm interested in "${details.title}" (${details.price_display}) on KibabuiMart: ${listingUrl}`;
- * const clickUrl = `${details.whatsapp_link}?text=${encodeURIComponent(message)}`;
+ * Loads an image from a URL and converts it into a PNG Blob.
+ * Handles CORS and canvas conversion.
+ */
+export async function loadImageAsPngBlob(imageUrl: string): Promise<Blob | null> {
+  if (!imageUrl) return null;
+
+  // 1. Try canvas loading with crossOrigin
+  try {
+    const blob = await new Promise<Blob | null>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      const timer = setTimeout(() => resolve(null), 3500);
+
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 400;
+          canvas.height = img.naturalHeight || img.height || 400;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(null);
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob((b) => resolve(b), 'image/png');
+        } catch {
+          resolve(null);
+        }
+      };
+
+      img.onerror = () => {
+        clearTimeout(timer);
+        resolve(null);
+      };
+
+      img.src = imageUrl;
+    });
+
+    if (blob) return blob;
+  } catch (err) {
+    console.warn('Canvas export error:', err);
+  }
+
+  // 2. Direct fetch fallback
+  try {
+    const res = await fetch(imageUrl, { mode: 'cors' });
+    if (res.ok) {
+      return await res.blob();
+    }
+  } catch {}
+
+  return null;
+}
+
+/**
+ * Copies a PNG image Blob to the system clipboard so the user can paste the real image in WhatsApp.
+ */
+export async function copyImageToClipboard(blob: Blob): Promise<boolean> {
+  if (!navigator.clipboard || !window.ClipboardItem) return false;
+
+  try {
+    let pngBlob = blob;
+    if (blob.type !== 'image/png') {
+      const converted = await new Promise<Blob | null>((resolve) => {
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || 400;
+          canvas.height = img.naturalHeight || 400;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(null);
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob((b) => resolve(b), 'image/png');
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+        img.src = url;
+      });
+      if (converted) pngBlob = converted;
+    }
+
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'image/png': pngBlob
+      })
+    ]);
+    return true;
+  } catch (err) {
+    console.warn('Clipboard write failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Builds the clickUrl for WhatsApp with inquiry message text.
  */
 export function buildListingWhatsAppUrl(details: {
   listing_id: string;
@@ -149,15 +245,7 @@ export function buildListingWhatsAppUrl(details: {
   whatsapp_link: string;
   image_url?: string | null;
 }): string {
-  const listingUrl = getListingShareUrl(details.listing_id);
-  let message = `Hi, I'm interested in "${details.title}" (${details.price_display}) on Kibumall.`;
-  if (details.image_url) {
-    const absoluteImg = details.image_url.startsWith('http')
-      ? details.image_url
-      : `${typeof window !== 'undefined' ? window.location.origin : ''}${details.image_url.startsWith('/') ? '' : '/'}${details.image_url}`;
-    message += `\nPhoto: ${absoluteImg}`;
-  }
-  message += `\nListing: ${listingUrl}`;
+  const message = `Hi, I'm interested in "${details.title}" (${details.price_display}) on Kibumall.`;
   return `${details.whatsapp_link}?text=${encodeURIComponent(message)}`;
 }
 
@@ -282,6 +370,19 @@ export async function triggerListingWhatsApp({
     return false;
   }
 
+  // Copy real image to clipboard so the user can paste the actual image directly in WhatsApp
+  let imageCopied = false;
+  if (resolvedImg) {
+    try {
+      const blob = await loadImageAsPngBlob(resolvedImg);
+      if (blob) {
+        imageCopied = await copyImageToClipboard(blob);
+      }
+    } catch (clipErr) {
+      console.warn('Failed to copy image to clipboard on WhatsApp tap:', clipErr);
+    }
+  }
+
   const itemTitle = (title || 'this item').trim();
   let prefilledMessage = `Hi, I'm interested in "${itemTitle}" on Kibumall.`;
 
@@ -290,22 +391,15 @@ export async function triggerListingWhatsApp({
     prefilledMessage = `Hi, I'm interested in "${itemTitle}" (${formattedPrice}) on Kibumall.`;
   }
 
-  if (resolvedImg) {
-    const absoluteImg = resolvedImg.startsWith('http')
-      ? resolvedImg
-      : `${typeof window !== 'undefined' ? window.location.origin : ''}${resolvedImg.startsWith('/') ? '' : '/'}${resolvedImg}`;
-    prefilledMessage += `\nPhoto: ${absoluteImg}`;
-  }
-
-  const targetIdForShare = primaryTargetId || listingId;
-  if (targetIdForShare) {
-    const shareUrl = getListingShareUrl(targetIdForShare);
-    prefilledMessage += `\nListing: ${shareUrl}`;
-  }
-
   const finalUrl = formatWhatsAppChatUrl(resolvedWa, prefilledMessage);
   if (!finalUrl) {
     return false;
+  }
+
+  if (imageCopied) {
+    toast.success('📸 Real photo copied to clipboard! Tap Paste (Ctrl+V) in WhatsApp to attach the image.', {
+      duration: 6000
+    });
   }
 
   const win = window.open(finalUrl, '_blank', 'noopener,noreferrer');
