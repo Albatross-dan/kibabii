@@ -14,7 +14,6 @@ import Home from '@/pages/Home';
 import Products from '@/pages/Products';
 import ProductDetail from '@/pages/ProductDetail';
 import Cart from '@/pages/Cart';
-import Checkout from '@/pages/Checkout';
 import Orders from '@/pages/Orders';
 import OrderDetail from '@/pages/OrderDetail';
 import Wishlist from '@/pages/Wishlist';
@@ -92,7 +91,7 @@ export default function App() {
             <Route path="/profile/:username" element={<Profile />} />
             
             {/* Protected Store Routes */}
-            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/checkout" element={<Navigate to="/cart" replace />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/notifications" element={<Notifications />} />

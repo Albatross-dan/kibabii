@@ -4,14 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, Loader2, ShieldCheck, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
+import { triggerListingWhatsApp } from '@/lib/whatsapp';
+import { WhatsAppIcon } from '@/components/common/WhatsAppCardButton';
 
 export default function Cart() {
   const { items, removeItem, updateQuantity, fetchCart, loading, total } = useCartStore();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [contactingId, setContactingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCart();
@@ -39,6 +42,47 @@ export default function Cart() {
       toast.error(err?.message || 'Failed to remove item from cart');
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleChatOnWhatsApp = async (item: any) => {
+    if (contactingId) return;
+    setContactingId(item.id);
+
+    try {
+      const targetId = item.productId || item.product_id;
+      const sellerId = item.sellerId || item.product?.seller_id;
+      const qty = item.quantity || 1;
+      const titleWithQty = qty > 1 ? `${item.title} (Qty: ${qty})` : item.title;
+      const totalPrice = item.price * qty;
+
+      const opened = await triggerListingWhatsApp({
+        listingId: targetId,
+        productId: targetId,
+        sellerId,
+        title: titleWithQty,
+        imageUrl: item.image,
+        price: totalPrice
+      });
+
+      if (!opened) {
+        toast.info("Seller hasn't set up WhatsApp contact for this listing yet. You can view the listing to contact them.");
+      }
+    } catch (err) {
+      console.warn('Cart item WhatsApp contact error:', err);
+      toast.error('Unable to open WhatsApp at this moment.');
+    } finally {
+      setContactingId(null);
+    }
+  };
+
+  const handleContactMain = async () => {
+    if (items.length === 0) return;
+    if (items.length === 1) {
+      await handleChatOnWhatsApp(items[0]);
+    } else {
+      toast.info('Opening chat for your first cart item. You can chat sellers individually for each item below.');
+      await handleChatOnWhatsApp(items[0]);
     }
   };
 
@@ -152,6 +196,35 @@ export default function Cart() {
                       <p className="text-xs text-muted-foreground font-mono">{formatPrice(item.price)} each</p>
                     </div>
                   </div>
+
+                  {/* Direct Contact Buttons */}
+                  <div className="pt-3 border-t border-slate-100 mt-3 flex items-center justify-between gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      onClick={() => handleChatOnWhatsApp(item)}
+                      disabled={contactingId === item.id}
+                      className="bg-[#25D366] hover:bg-[#20BD5A] text-white font-bold text-xs h-9 px-3.5 rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all active:scale-95"
+                    >
+                      {contactingId === item.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <WhatsAppIcon className="w-3.5 h-3.5" />
+                      )}
+                      Chat Seller on WhatsApp
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="text-xs font-semibold h-9 rounded-lg hover:bg-slate-100 text-slate-700"
+                    >
+                      <Link to={`/products/${item.productId || item.product_id}`}>
+                        View Listing
+                        <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-400" />
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -161,20 +234,16 @@ export default function Cart() {
         <div className="space-y-6">
           <Card className="rounded-2xl border bg-white shadow-sm sticky top-32">
             <CardContent className="p-6 space-y-6">
-              <h2 className="text-xl font-bold">Order Summary</h2>
+              <h2 className="text-xl font-bold">Cart Summary</h2>
               
               <div className="space-y-4">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal</span>
-                  <span className="font-mono text-secondary font-bold">{formatPrice(total)}</span>
+                  <span>Saved Items</span>
+                  <span className="font-bold text-slate-900">{items.length} {items.length === 1 ? 'item' : 'items'}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Delivery Fee</span>
-                  <span className="font-mono text-green-600 font-bold">FREE</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                   <span>Tax</span>
-                   <span className="font-mono text-secondary font-bold font-mono">KES 0.00</span>
+                  <span>Campus Delivery</span>
+                  <span className="font-semibold text-emerald-600">DIRECT MEETUP</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between items-end">
@@ -185,14 +254,55 @@ export default function Cart() {
                 </div>
               </div>
 
-              <Button asChild className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/20">
-                <Link to="/checkout">Proceed to Checkout</Link>
-              </Button>
+              {/* Direct WhatsApp Contact Button - No Checkout */}
+              <div className="space-y-3">
+                <Button 
+                  onClick={handleContactMain}
+                  disabled={!!contactingId || items.length === 0}
+                  className="w-full h-13 text-base font-bold bg-[#25D366] hover:bg-[#20BD5A] text-white rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99]"
+                >
+                  {contactingId ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <WhatsAppIcon className="w-5 h-5" />
+                  )}
+                  {items.length === 1 ? 'Chat Seller on WhatsApp' : 'Contact on WhatsApp'}
+                </Button>
 
-              <div className="pt-2 text-center">
-                 <p className="text-xs text-muted-foreground font-semibold flex items-center justify-center gap-1.5">
-                   💬 Direct WhatsApp & In-App Chat Marketplace
-                 </p>
+                <Button
+                  variant="outline"
+                  asChild
+                  className="w-full h-11 text-xs font-bold text-slate-700 border-slate-200 hover:bg-slate-50 rounded-xl"
+                >
+                  <Link to="/products">
+                    Continue Browsing Products
+                  </Link>
+                </Button>
+              </div>
+
+              {/* Safe Campus Meetup Advisory - No M-Pesa / No Checkout needed */}
+              <div className="p-4 bg-emerald-50/70 border border-emerald-200/70 rounded-xl space-y-2 text-left">
+                <div className="flex items-center gap-2 text-emerald-950 font-bold text-xs">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>No Checkout or Prepayment Needed</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                  Kibumall is a direct campus marketplace. Connect with sellers on WhatsApp or in-app chat to coordinate meetup, inspect your items in person, and pay directly upon handover.
+                </p>
+                <div className="pt-1 flex flex-col gap-1.5 text-[10.5px] text-slate-500 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    Meet at safe campus spots (Hostels, Student Centre, Library)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    Inspect items before paying
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    Pay cash or direct upon meetup
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>

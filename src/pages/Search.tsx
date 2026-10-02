@@ -902,7 +902,7 @@ export default function Search() {
                         className="overflow-hidden border border-slate-100 hover:border-slate-200 transition-all rounded-lg bg-white flex flex-col justify-between shadow-xs hover:shadow-md hover:-translate-y-0.5 group shrink-0 cursor-pointer"
                       >
                         <div>
-                          <div className="aspect-square bg-slate-50 relative overflow-hidden flex items-center justify-center">
+                          <div className="aspect-square bg-slate-50 relative overflow-hidden">
                             {spec.image ? (
                               <img 
                                 src={spec.image} 

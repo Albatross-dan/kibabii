@@ -542,12 +542,12 @@ export default function Home() {
         onClick={() => navigate(`/listing/${listing.id}`)}
         className="w-full bg-white rounded-lg border border-gray-150 shadow-xs overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
       >
-        <div className="relative aspect-square bg-slate-50 overflow-hidden flex items-center justify-center">
+        <div className="relative aspect-square bg-slate-100 overflow-hidden">
           {imageUrl ? (
             <img 
               src={imageUrl} 
               alt={listing.title} 
-              className="w-full h-full object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               style={{ imageRendering: '-webkit-optimize-contrast' }}
               referrerPolicy="no-referrer"
               loading="lazy"
@@ -762,12 +762,12 @@ export default function Home() {
         onClick={() => navigate(`/listing/${id}`)}
         className="w-full bg-white rounded-lg border border-gray-150 shadow-xs overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer text-left flex flex-col justify-between group"
       >
-        <div className="relative aspect-square bg-slate-50 overflow-hidden flex items-center justify-center">
+        <div className="relative aspect-square bg-slate-100 overflow-hidden">
           {imageUrl ? (
             <img 
               src={imageUrl} 
               alt={title} 
-              className="w-full h-full object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               style={{ imageRendering: '-webkit-optimize-contrast' }}
               referrerPolicy="no-referrer"
               loading="lazy"
@@ -885,12 +885,12 @@ export default function Home() {
         onClick={() => navigate(`/listing/${service.listing_id || service.id}`)}
         className="w-full bg-white rounded-lg border border-gray-150 shadow-xs overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer text-left flex flex-col justify-between group"
       >
-        <div className="relative aspect-square bg-slate-100 overflow-hidden flex items-center justify-center">
+        <div className="relative aspect-square bg-slate-100 overflow-hidden">
           {imageUrl ? (
             <img 
               src={imageUrl} 
               alt={service.title || 'Campus Service'} 
-              className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               style={{ imageRendering: '-webkit-optimize-contrast' }}
               referrerPolicy="no-referrer"
               loading="lazy"
@@ -1153,12 +1153,12 @@ export default function Home() {
           onClick={() => navigate(`/listing/${listing.id}`)}
           className="w-full bg-white rounded-lg border border-gray-150 shadow-xs overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer text-left flex flex-col justify-between group"
         >
-          <div className="relative aspect-square bg-slate-50 overflow-hidden flex items-center justify-center">
+          <div className="relative aspect-square bg-slate-100 overflow-hidden">
             {imageUrl ? (
               <img 
                 src={imageUrl} 
                 alt={listing.title} 
-                className="w-full h-full object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 style={{ imageRendering: '-webkit-optimize-contrast' }}
                 referrerPolicy="no-referrer"
                 loading="lazy"

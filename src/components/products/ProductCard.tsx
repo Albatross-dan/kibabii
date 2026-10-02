@@ -111,16 +111,16 @@ export default function ProductCard({ product }: ProductCardProps) {
           </button>
         </div>
 
-        {/* Image */}
-        <div className="aspect-square overflow-hidden relative bg-slate-50 flex items-center justify-center p-2">
+        {/* Image - covers edge-to-edge within aspect-square */}
+        <div className="aspect-square overflow-hidden relative bg-slate-100">
           <img
             src={coverImage}
             alt={product.title}
-            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             style={{ imageRendering: '-webkit-optimize-contrast' }}
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-black/[0.01] group-hover:bg-transparent transition-colors"></div>
+          <div className="absolute inset-0 bg-black/[0.02] group-hover:bg-transparent transition-colors pointer-events-none"></div>
         </div>
 
         <CardContent className="p-2 sm:p-2.5 space-y-1.5 text-left">
