@@ -69,9 +69,9 @@ export default function StoreCreationModal({
     // Get current user from the real Supabase session or useAuthStore populated from session
     let currentUser: { id: string; email?: string } | null = null;
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser?.id) {
-        currentUser = authUser;
+      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      if (data?.user?.id) {
+        currentUser = data.user;
       }
     } catch (e) {
       console.warn('Supabase auth session check notice:', e);

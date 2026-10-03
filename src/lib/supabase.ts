@@ -6,10 +6,24 @@ const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJ
 const dualStorage = {
   getItem: (key: string): string | null => {
     try {
-      return (
-        window.localStorage.getItem(key) ||
-        window.sessionStorage.getItem(key)
-      );
+      const val = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (!val) return null;
+      if (key === 'kibabiimart-auth') {
+        try {
+          const parsed = JSON.parse(val);
+          // If stored auth payload is corrupt or missing both tokens, wipe it
+          if (!parsed || (typeof parsed === 'object' && !parsed.refresh_token && !parsed.access_token)) {
+            window.localStorage.removeItem(key);
+            window.sessionStorage.removeItem(key);
+            return null;
+          }
+        } catch {
+          window.localStorage.removeItem(key);
+          window.sessionStorage.removeItem(key);
+          return null;
+        }
+      }
+      return val;
     } catch { return null; }
   },
   setItem: (key: string, value: string): void => {
@@ -44,6 +58,29 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// Global unhandled rejection guard for expired/invalid refresh tokens
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    const msg = (reason?.message || (typeof reason === 'string' ? reason : '')).toLowerCase();
+    if (
+      msg.includes('invalid refresh token') ||
+      msg.includes('refresh token not found') ||
+      msg.includes('refresh_token_not_found') ||
+      msg.includes('invalid_grant')
+    ) {
+      console.warn('[Supabase Auth] Intercepted invalid refresh token, clearing stale session.');
+      event.preventDefault();
+      try {
+        dualStorage.removeItem('kibabiimart-auth');
+        window.localStorage.removeItem('kibabiimart-auth');
+        window.sessionStorage.removeItem('kibabiimart-auth');
+        supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      } catch {}
+    }
+  });
+}
+
 // Global state for login modal
 let loginModalResolver: ((value: User | null) => void) | null = null;
 
@@ -62,14 +99,23 @@ export const resolveLoginModal = (user: User | null) => {
 
 export const requireAuth = async (): Promise<User | null> => {
   try {
-    // 1. Try getting existing session
-    const { data } = await supabase.auth.getSession();
-    if (data?.session?.user) return data.session.user;
-
-    // 2. Try refreshing
-    const { data: refreshed } = await supabase.auth.refreshSession();
-    if (refreshed?.session?.user) return refreshed.session.user;
-  } catch (err) {
+    // 1. Try getting existing session safely
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      const msg = error.message || '';
+      if (msg.includes('Refresh Token') || msg.includes('refresh_token') || msg.includes('invalid_grant')) {
+        dualStorage.removeItem('kibabiimart-auth');
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      }
+    } else if (data?.session?.user) {
+      return data.session.user;
+    }
+  } catch (err: any) {
+    const msg = err?.message || '';
+    if (msg.includes('Refresh Token') || msg.includes('refresh_token') || msg.includes('invalid_grant')) {
+      dualStorage.removeItem('kibabiimart-auth');
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+    }
     console.warn('Session check encountered network error (falling back to local):', err);
   }
 

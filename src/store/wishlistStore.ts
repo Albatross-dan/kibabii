@@ -117,14 +117,14 @@ export const useWishlistStore = create<WishlistStore>()(
         if (!listingId) return false;
 
         // Check if there is an active Supabase session (with JWT)
-        let session = (await supabase.auth.getSession()).data?.session;
-        if (!session?.user) {
-          try {
-            const { data: refreshData } = await supabase.auth.refreshSession();
-            session = refreshData?.session || null;
-          } catch {
-            session = null;
+        let session = null;
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          if (!error && data?.session?.user) {
+            session = data.session;
           }
+        } catch {
+          session = null;
         }
 
         const prevItems = [...get().items];

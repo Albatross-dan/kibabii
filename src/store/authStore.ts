@@ -397,7 +397,26 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       };
 
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.warn('[Auth] Stale or invalid session detected on init:', error.message);
+          const msg = (error.message || '').toLowerCase();
+          if (
+            msg.includes('refresh token') ||
+            msg.includes('invalid_grant') ||
+            (error as any).status === 400
+          ) {
+            await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+            try {
+              localStorage.removeItem('kibabiimart-auth');
+              sessionStorage.removeItem('kibabiimart-auth');
+            } catch {}
+            set({ user: null, profile: null, isAdmin: false });
+            return;
+          }
+        }
+
+        const session = data?.session;
         if (session?.user) {
           if (get().user?.id !== session.user.id) {
             set({ user: session.user });
@@ -405,8 +424,17 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           fetchProfile(session.user.id);
           checkAdminStatus(session.user.id);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn('Session check handled:', err);
+        const msg = (err?.message || '').toLowerCase();
+        if (msg.includes('refresh token') || msg.includes('invalid_grant')) {
+          await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+          try {
+            localStorage.removeItem('kibabiimart-auth');
+            sessionStorage.removeItem('kibabiimart-auth');
+          } catch {}
+          set({ user: null, profile: null, isAdmin: false });
+        }
       }
 
       supabase.auth.onAuthStateChange(async (event, session) => {

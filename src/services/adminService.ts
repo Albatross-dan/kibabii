@@ -227,7 +227,8 @@ export const adminService = {
   async checkAdminStatus(): Promise<boolean> {
     try {
       // Call standard supabase RPC or check authenticated user's metadata/profile
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      const user = authData?.user;
       if (!user) {
         // Fallback to active mock session validation
         const activeSessionId = localStorage.getItem('kibabui_active_session_id');
@@ -297,8 +298,8 @@ export const adminService = {
     const activeUserName = activeUserId === 'admin-user' ? 'Kibabii Admin' : 'Admin Staff';
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const dbActorId = user?.id || activeUserId;
+      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      const dbActorId = data?.user?.id || activeUserId;
 
       await supabase.from('audit_logs').insert({
         actor_id: dbActorId,
@@ -430,9 +431,9 @@ export const adminService = {
 
       if (reason) {
         try {
-          const { data: { user } } = await supabase.auth.getUser();
+          const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
           await supabase.from('audit_logs').insert({
-            actor_id: user?.id || null,
+            actor_id: data?.user?.id || null,
             action: 'LISTING_REJECTED',
             target_type: 'listings',
             target_id: realListingId,
@@ -511,9 +512,9 @@ export const adminService = {
         // If RPC completed successfully
         if (!rpcError && (!rpcData?.error || rpcData?.success === true)) {
           try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
             await supabase.from('audit_logs').insert({
-              actor_id: user?.id || null,
+              actor_id: data?.user?.id || null,
               action: 'LISTING_PERMANENTLY_DELETED',
               target_type: 'listings',
               target_id: resolvedListingId,
@@ -602,9 +603,9 @@ export const adminService = {
       ]);
 
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
         await supabase.from('audit_logs').insert({
-          actor_id: user?.id || null,
+          actor_id: data?.user?.id || null,
           action: 'LISTING_PERMANENTLY_DELETED',
           target_type: 'listings',
           target_id: targetId,

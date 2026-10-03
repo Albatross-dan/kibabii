@@ -87,9 +87,9 @@ export const storeService = {
 
     try {
       let ownerId = params.userId;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.id) {
-        ownerId = user.id;
+      const { data: authRes } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      if (authRes?.user?.id) {
+        ownerId = authRes.user.id;
       }
 
       let createdStore: any = null;

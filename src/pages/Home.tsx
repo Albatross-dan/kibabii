@@ -1295,14 +1295,14 @@ export default function Home() {
           <button
             type="button"
             onClick={() => navigate('/search?sellerType=student')}
-            className="bg-[#ECFDF5] rounded-2xl p-2.5 sm:p-3 shadow-xs border border-[#10B981]/30 flex items-center gap-2.5 sm:gap-3 text-left hover:shadow-md hover:border-[#10B981]/50 transition-all cursor-pointer group"
+            className="bg-[#064E3B] rounded-2xl p-2.5 sm:p-3 shadow-xs border border-emerald-800/80 flex items-center gap-2.5 sm:gap-3 text-left hover:bg-[#054333] hover:shadow-md hover:border-emerald-600/50 transition-all cursor-pointer group"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 stroke-[2.2]" />
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/10 text-emerald-300 border border-emerald-400/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-300 stroke-[2.2]" />
             </div>
             <div className="min-w-0 flex-1">
-              <h4 className="font-bold text-gray-900 text-xs sm:text-sm leading-tight truncate">Second Hand</h4>
-              <p className="text-[10px] sm:text-xs text-gray-400 font-medium leading-tight mt-0.5 truncate">Pre-loved items</p>
+              <h4 className="font-bold text-white text-xs sm:text-sm leading-tight truncate">Second Hand</h4>
+              <p className="text-[10px] sm:text-xs text-emerald-200/90 font-medium leading-tight mt-0.5 truncate">Pre-loved items</p>
             </div>
           </button>
 
@@ -1310,14 +1310,14 @@ export default function Home() {
           <button
             type="button"
             onClick={() => navigate('/search?sellerType=store')}
-            className="bg-[#EEF2FF] rounded-2xl p-2.5 sm:p-3 shadow-xs border border-[#6366F1]/30 flex items-center gap-2.5 sm:gap-3 text-left hover:shadow-md hover:border-[#6366F1]/50 transition-all cursor-pointer group"
+            className="bg-[#0B1E36] rounded-2xl p-2.5 sm:p-3 shadow-xs border border-blue-900/80 flex items-center gap-2.5 sm:gap-3 text-left hover:bg-[#0E2542] hover:shadow-md hover:border-blue-600/50 transition-all cursor-pointer group"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Store className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500 stroke-[2.2]" />
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/10 text-blue-300 border border-blue-400/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Store className="w-4 h-4 sm:w-5 sm:h-5 text-blue-300 stroke-[2.2]" />
             </div>
             <div className="min-w-0 flex-1">
-              <h4 className="font-bold text-gray-900 text-xs sm:text-sm leading-tight truncate">Shop Owners</h4>
-              <p className="text-[10px] sm:text-xs text-gray-400 font-medium leading-tight mt-0.5 truncate">Stores & Businesses</p>
+              <h4 className="font-bold text-white text-xs sm:text-sm leading-tight truncate">Shop Owners</h4>
+              <p className="text-[10px] sm:text-xs text-blue-200/90 font-medium leading-tight mt-0.5 truncate">Stores & Businesses</p>
             </div>
           </button>
         </div>

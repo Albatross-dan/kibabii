@@ -1047,7 +1047,8 @@ export const listingService = {
     brandId?: string | null;
     images?: string[];
   }): Promise<Listing> {
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    const { data: userData, error: userErr } = await supabase.auth.getUser().catch(() => ({ data: { user: null }, error: new Error('Auth error') }));
+    const user = userData?.user;
     if (!user || userErr) {
       throw new Error('Not authenticated. Please log in before creating a product listing.');
     }
@@ -1148,7 +1149,8 @@ export const listingService = {
     sellerType?: string;
     images?: string[];
   }): Promise<Listing> {
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    const { data: userData, error: userErr } = await supabase.auth.getUser().catch(() => ({ data: { user: null }, error: new Error('Auth error') }));
+    const user = userData?.user;
     if (!user || userErr) {
       throw new Error('Not authenticated. Please log in before creating an accommodation listing.');
     }
@@ -1237,7 +1239,8 @@ export const listingService = {
     providerBio?: string | null;
     images?: string[];
   }): Promise<Listing> {
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    const { data: userData, error: userErr } = await supabase.auth.getUser().catch(() => ({ data: { user: null }, error: new Error('Auth error') }));
+    const user = userData?.user;
     if (!user || userErr) {
       throw new Error('Not authenticated. Please log in before creating a service listing.');
     }
@@ -1355,7 +1358,8 @@ export const listingService = {
     contactPhone?: string | null;
     images?: string[];
   }): Promise<Listing> {
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    const { data: userData, error: userErr } = await supabase.auth.getUser().catch(() => ({ data: { user: null }, error: new Error('Auth error') }));
+    const user = userData?.user;
     if (!user || userErr) {
       throw new Error('Not authenticated. Please log in before creating a lost & found listing.');
     }
@@ -1449,7 +1453,8 @@ export const listingService = {
     maxAttendees?: number | null;
     images?: string[];
   }): Promise<Listing> {
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    const { data: userData, error: userErr } = await supabase.auth.getUser().catch(() => ({ data: { user: null }, error: new Error('Auth error') }));
+    const user = userData?.user;
     if (!user || userErr) {
       throw new Error('Not authenticated. Please log in before creating an event listing.');
     }
